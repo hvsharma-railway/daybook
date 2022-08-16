@@ -37,8 +37,8 @@
 
         try {
 
-            $reader = new \PhpOffice\PhpSpreadsheet\Reader\Xls();
-            $spreadsheet = $reader->load("BOOK.xls");
+            $reader = new \PhpOffice\PhpSpreadsheet\Reader\Xlsx(); 
+            $spreadsheet = $reader->load("BOOK.xlsx");
             $sheetData = $spreadsheet->getActiveSheet()->toArray();
 
             $i = 0;
