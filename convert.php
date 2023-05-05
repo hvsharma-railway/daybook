@@ -37,7 +37,7 @@
 
         try {
 
-            $reader = new \PhpOffice\PhpSpreadsheet\Reader\Xlsx(); 
+            $reader = new \PhpOffice\PhpSpreadsheet\Reader\Xlsx();
             $spreadsheet = $reader->load("BOOK.xlsx");
             $sheetData = $spreadsheet->getActiveSheet()->toArray();
 
@@ -262,7 +262,11 @@
                             </tr>
                         </tbody>
                     </table>
-
+                    <div class="row" style="margin-top:80px; margin-bottom:40px;">
+                        <div class="col-lg-2 col-xs-2">AC / JE (IT)</div>
+                        <div class="col-lg-2 col-xs-2">SSO (Books)</div>
+                        <div class="col-lg-2 col-xs-2">ADFM / SrDFM RJT</div>
+                    </div>
                 </div>
                 <button id="Summary" class="btn">PRINT</button></br /><br />
                 <button id="addRow" class=" btn-sm">Add Row</button> &nbsp; | &nbsp; <button id="deleteRow" class=" btn-sm">Delete Row</button>
@@ -325,107 +329,98 @@
 
         // $(document).ready(function() {
 
-            $(".lastInput").change(function() {
+        $(".lastInput").change(function() {
 
-                var key = this.id.substring(0, 1);
-                var totalLastVal = 0.00,
-                    totalToEnd = 0.00;
-                var toEnd = parseFloat($("#" + this.id).val()) + parseFloat($("#" + key + "FOR").html());
+            var key = this.id.substring(0, 1);
+            var totalLastVal = 0.00,
+                totalToEnd = 0.00;
+            var toEnd = parseFloat($("#" + this.id).val()) + parseFloat($("#" + key + "FOR").html());
 
-                $("#" + key + "TOEND").html(toEnd.toFixed(2));
+            $("#" + key + "TOEND").html(toEnd.toFixed(2));
 
-                $(".lastInput").each(function() {
-                    totalLastVal = totalLastVal + parseFloat($("#" + this.id).val());
-                });
-                $(".toEnd").each(function() {
-                    totalToEnd = totalToEnd + parseFloat($("#" + this.id).html());
-                });
-                $("#totalLastMonth").val(parseFloat(totalLastVal).toFixed(2));
-                $("#totalToEnd").html(totalToEnd.toFixed(2));
-
+            $(".lastInput").each(function() {
+                totalLastVal = totalLastVal + parseFloat($("#" + this.id).val());
             });
-            $(function() {
-
-                $("#addRow").click(function() {
-                    rowCount++;
-                    var lastId = rowCount + "LAST";
-                    var forId = rowCount + "FOR";
-                    var toEndId = rowCount + 'TOEND';
-                    $("#lastRow").before("<tr id='customTr" + rowCount + "'>" +
-                        "<td class='text-right customAllocation' style='height:36px;' id='newAllocation" + rowCount + "'><input class='text-right newAllocation' type='text' maxlength='5' style='width:50px;' id='newAllocation" + rowCount + "Value'/></td>" +
-                        "<td class='text-right last'><input onchange=lastInputChange('" + lastId + "') class='text-right lastInput' id='" + rowCount + "LAST' type='number' value='0.00'/></td>" +
-                        "<td class='text-right' id='" + rowCount + "FOR'>0.00</td>" +
-                        "<td class='text-right toEnd' id='" + rowCount + "TOEND'>0.00</td>" +
-                        "</tr>");
-                });
-                $("#deleteRow").click(function() {
-                    if (rowCount > 0) {
-                        $("#customTr" + rowCount).remove();
-                        rowCount--;
-                    }
-                });
-
-                $(".btn").click(function() {
-                    $(".last").hide();
-
-                    var myMap = new Map();
-                    $(".customAllocation").each(function() {
-                        myMap.set(this.id, $("#" + this.id).html());
-                        $("#" + this.id).html($("#" + this.id + "Value").val());
-                    });
-                    var contents = $("#table" + this.id).html();
-               
-                    // sorting based on allocation number
-                    sortTable($("#tableBody"),'asc');
-                    contents = $("#table" + this.id).html();
-                    
-                    var frame1 = $('<iframe />');
-                    frame1[0].name = "frame1";
-                    frame1.css({
-                        "position": "absolute",
-                        "top": "-1000000px"
-                    });
-                    $("body").append(frame1);
-                    var frameDoc = frame1[0].contentWindow ? frame1[0].contentWindow : frame1[0].contentDocument.document ? frame1[0].contentDocument.document : frame1[0].contentDocument;
-                    frameDoc.document.open();
-                    //Create a new HTML document.
-                    frameDoc.document.write('<html><head><title>DIV Contents</title>');
-                    frameDoc.document.write('</head><body>');
-                    //Append the external CSS file.
-                    frameDoc.document.write('<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css" rel="stylesheet" type="text/css" />');
-
-                    // TODO do check this condition for any problems
-                    if(this.id === 'Summary'){
-                        frameDoc.document.write('<style> .table-bordered tbody tr td, .table-bordered thead tr th { border: 1px solid black !important; width:450px;}  .signature {margin-top: 200px;display:flex; justify-content:space-between;}</style>');
-                        frameDoc.document.write(contents + '<div class="signature"><span> <strong>JE (IT) </strong> </span><span> <strong>SSO (B&B) </strong> </span><span> <strong>ADFM </strong> </span> </div>');
-                    } else {
-                        frameDoc.document.write(contents);
-                    }
-
-                    //Append the DIV contents.
-
-                    frameDoc.document.write('</body></html>');
-                    frameDoc.document.close();
-                    setTimeout(function() {
-                        window.frames["frame1"].focus();
-                        window.frames["frame1"].print();
-                        frame1.remove();
-                    }, 500);
-                    $(".last").show();
-                    console.log("myMap.entries()", myMap.entries());
-                    // return;
-                    
-                    // NOTE above for loop is written to preserve the new rows & it's data after printing operation is done  
-                    for (const [key, value] of myMap.entries()) {
-                        console.log( $("#" +key).text());
-                        let valueToBeUpdated = $("#" + key).text();
-                        $("#" + key).html(value);
-                        $("#" + key + "Value").val(valueToBeUpdated);
-                        // console.log($(newAllocation5Value));
-                    }
-                    console.log(myMap);
-                });
+            $(".toEnd").each(function() {
+                totalToEnd = totalToEnd + parseFloat($("#" + this.id).html());
             });
+            $("#totalLastMonth").val(parseFloat(totalLastVal).toFixed(2));
+            $("#totalToEnd").html(totalToEnd.toFixed(2));
+
+        });
+        $(function() {
+
+            $("#addRow").click(function() {
+                rowCount++;
+                var lastId = rowCount + "LAST";
+                var forId = rowCount + "FOR";
+                var toEndId = rowCount + 'TOEND';
+                $("#lastRow").before("<tr id='customTr" + rowCount + "'>" +
+                    "<td class='text-right customAllocation' style='height:36px;' id='newAllocation" + rowCount + "'><input class='text-right newAllocation' type='text' maxlength='5' style='width:50px;' id='newAllocation" + rowCount + "Value'/></td>" +
+                    "<td class='text-right last'><input onchange=lastInputChange('" + lastId + "') class='text-right lastInput' id='" + rowCount + "LAST' type='number' value='0.00'/></td>" +
+                    "<td class='text-right' id='" + rowCount + "FOR'>0.00</td>" +
+                    "<td class='text-right toEnd' id='" + rowCount + "TOEND'>0.00</td>" +
+                    "</tr>");
+            });
+            $("#deleteRow").click(function() {
+                if (rowCount > 0) {
+                    $("#customTr" + rowCount).remove();
+                    rowCount--;
+                }
+            });
+
+            $(".btn").click(function() {
+                $(".last").hide();
+
+                var myMap = new Map();
+                $(".customAllocation").each(function() {
+                    myMap.set(this.id, $("#" + this.id).html());
+                    $("#" + this.id).html($("#" + this.id + "Value").val());
+                });
+                var contents = $("#table" + this.id).html();
+
+                // sorting based on allocation number
+                sortTable($("#tableBody"), 'asc');
+                contents = $("#table" + this.id).html();
+
+                var frame1 = $('<iframe />');
+                frame1[0].name = "frame1";
+                frame1.css({
+                    "position": "absolute",
+                    "top": "-1000000px"
+                });
+                $("body").append(frame1);
+                var frameDoc = frame1[0].contentWindow ? frame1[0].contentWindow : frame1[0].contentDocument.document ? frame1[0].contentDocument.document : frame1[0].contentDocument;
+                frameDoc.document.open();
+                //Create a new HTML document.
+                frameDoc.document.write('<html><head><title>DIV Contents</title>');
+                frameDoc.document.write('</head><body>');
+                //Append the external CSS file.
+                frameDoc.document.write('<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css" rel="stylesheet" type="text/css" />');
+
+                frameDoc.document.write(contents);
+                //Append the DIV contents.
+
+                frameDoc.document.write('</body></html>');
+                frameDoc.document.close();
+                setTimeout(function() {
+                    window.frames["frame1"].focus();
+                    window.frames["frame1"].print();
+                    frame1.remove();
+                }, 500);
+                $(".last").show();
+                console.log("myMap.entries()", myMap.entries());
+                // return;
+
+                // NOTE above for loop is written to preserve the new rows & it's data after printing operation is done  
+                for (const [key, value] of myMap.entries()) {
+                    let valueToBeUpdated = $("#" + key).text();
+                    $("#" + key).html(value);
+                    $("#" + key + "Value").val(valueToBeUpdated);
+                    // console.log($(newAllocation5Value));
+                }
+            });
+        });
 
         // });
     </script>
