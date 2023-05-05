@@ -376,7 +376,7 @@
                     var contents = $("#table" + this.id).html();
                
                     // sorting based on allocation number
-                    sortTable($("#table" + this.id),'asc');
+                    sortTable($("#tableBody"),'asc');
                     contents = $("#table" + this.id).html();
                     
                     var frame1 = $('<iframe />');
