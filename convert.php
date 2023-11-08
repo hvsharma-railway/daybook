@@ -199,8 +199,17 @@
                                         echo "<td class='text-right'>---</td>";
                                     }
                                 }
-
                                 $total["Total"] = $total["Total"] + $subTotal;
+                                // Below code handles the exponentially generated 0 value;
+                                // starts //
+                                if (number_format($subTotal, 2) == 0) {
+                                    $subTotal = number_format($subTotal, 2);
+                                }
+
+                                if (number_format($total["Total"], 2) == 0) {
+                                    $total["Total"] = number_format($total["Total"], 2);
+                                }
+                                // ends //
 
                                 echo "<td class='text-right'>" . $subTotal . "</td>";
                                 echo "</tr>";
@@ -248,10 +257,10 @@
                                 $count++; ?>
                                 <tr>
                                     <td class='text-right'><?php echo substr($allocation, 0, 2) . "-" . substr($allocation, 2, 4); ?></td>
-                                    <td class='text-right last'><input class='text-right lastInput' id="<?php echo $count . "Last"; ?>" type='number' value="0.00" /></td>
-                                    <td class='text-right' id="<?php echo $count . "FOR"; ?>"><?php echo $grandTotal["Total" . substr($allocation, 0, 2) . "-" . substr($allocation, 2, 4)];
+                                    <td class='text-right last'><input class='text-right lastInput' id="<?php echo str_pad($count, 2, '0', STR_PAD_LEFT) . "Last"; ?>" type='number' value="0.00" /></td>
+                                    <td class='text-right' id="<?php echo str_pad($count, 2, '0', STR_PAD_LEFT) . "FOR"; ?>"><?php echo $grandTotal["Total" . substr($allocation, 0, 2) . "-" . substr($allocation, 2, 4)];
                                                                                                 $forTheMonthTotal = $forTheMonthTotal + $grandTotal["Total" . substr($allocation, 0, 2) . "-" . substr($allocation, 2, 4)]; ?></td>
-                                    <td class='text-right toEnd' id="<?php echo $count . "TOEND"; ?>"><?php echo $grandTotal["Total" . substr($allocation, 0, 2) . "-" . substr($allocation, 2, 4)]; ?></td>
+                                    <td class='text-right toEnd' id="<?php echo str_pad($count, 2, '0', STR_PAD_LEFT) . "TOEND"; ?>"><?php echo $grandTotal["Total" . substr($allocation, 0, 2) . "-" . substr($allocation, 2, 4)]; ?></td>
                                 </tr>
                             <?php } ?>
                             <tr id='lastRow'>
@@ -292,7 +301,7 @@
 
         function lastInputChange(id) {
 
-            var key = id.substring(0, 1);
+            var key = id.substring(0, 2);
             var totalLastVal = 0.00,
                 totalToEnd = 0.00;
             var toEnd = parseFloat($("#" + id).val()) + parseFloat($("#" + key + "FOR").html());
@@ -331,7 +340,7 @@
 
         $(".lastInput").change(function() {
 
-            var key = this.id.substring(0, 1);
+            var key = this.id.substring(0, 2);
             var totalLastVal = 0.00,
                 totalToEnd = 0.00;
             var toEnd = parseFloat($("#" + this.id).val()) + parseFloat($("#" + key + "FOR").html());
@@ -352,6 +361,7 @@
 
             $("#addRow").click(function() {
                 rowCount++;
+                rowCount = String(rowCount).padStart(2, '0');
                 var lastId = rowCount + "LAST";
                 var forId = rowCount + "FOR";
                 var toEndId = rowCount + 'TOEND';
