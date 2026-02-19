@@ -9,6 +9,268 @@
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
     <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px 0;
+        }
+
+        .container-main {
+            max-width: 100%;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: right;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-section h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 300;
+            letter-spacing: 1px;
+        }
+
+        .header-section a {
+            color: white;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: 500;
+            padding: 8px 16px;
+            border: 2px solid white;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .header-section a:hover {
+            background: white;
+            color: #667eea;
+        }
+
+        .content-section {
+            padding: 30px;
+        }
+
+        .table-wrapper {
+            margin-bottom: 40px;
+            background: #fafafa;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .table-title {
+            color: #333;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+            display: inline-block;
+        }
+
+        .table {
+            margin-bottom: 20px;
+            background: white;
+        }
+
+        .table thead th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 600;
+            border: 1px solid #667eea !important;
+            text-align: center;
+            padding: 15px 10px !important;
+        }
+
+        .table tbody tr {
+            border: 1px solid #ddd !important;
+            transition: background 0.2s ease;
+        }
+
+        .table tbody tr:hover {
+            background: #f9f9f9;
+        }
+
+        .table tbody td {
+            padding: 12px 10px !important;
+            border: 1px solid #ddd !important;
+            vertical-align: middle;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .print-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            margin: 20px auto;
+            display: block;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .print-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            color: white;
+            text-decoration: none;
+        }
+
+        .summary-section {
+            background: #fafafa;
+            padding: 30px;
+            border-radius: 8px;
+            margin-top: 40px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .summary-title {
+            color: #333;
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .summary-table {
+            width: 50%;
+            margin: 0 auto 30px auto;
+            background: white;
+        }
+
+        .summary-table thead th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 600;
+            border: 1px solid #667eea !important;
+            padding: 15px 10px !important;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+
+        .btn-custom {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            font-size: 14px;
+        }
+
+        .btn-primary-custom {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            color: white;
+            text-decoration: none;
+        }
+
+        .btn-success-custom {
+            background: linear-gradient(135deg, #56ab2f 0%, #a8e06f 100%);
+            color: white;
+        }
+
+        .btn-success-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            color: white;
+            text-decoration: none;
+        }
+
+        .btn-danger-custom {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+            color: white;
+        }
+
+        .btn-danger-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            color: white;
+            text-decoration: none;
+        }
+
+        .signature-section {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 2px dashed #ddd;
+        }
+
+        .signature-item {
+            text-align: center;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .signature-item .signature-line {
+            width: 150px;
+            height: 50px;
+            border-top: 1px solid #333;
+            margin-top: 20px;
+        }
+
+        .footer-section {
+            text-align: center;
+            padding: 20px;
+            font-size: 18px;
+            font-weight: 600;
+            margin-top: 30px;
+        }
+
+        .footer-section a {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 20px;
+        }
+
+        .footer-section a:hover {
+            text-decoration: underline;
+        }
+
+        input[type="number"] {
+            border: 1px solid #ddd;
+            padding: 8px;
+            border-radius: 4px;
+            width: 100%;
+        }
+
         .data thead tr th {
             width: 115px;
             border: 1px solid black !important;

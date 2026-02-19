@@ -66,8 +66,13 @@
                     if ($dayBookFor === "") {
                         $dayBookFor = substr($t[0], 13, 2);
                     }
-                } else if ($t[0] != "SECTION" && $t[0] != "" &&  strpos($t[4], "SYS-GENERATED") === false && $code != "" && $subAllocationCode != "" && (substr($code, 2, 4) < 66 || substr($code, 2, 4) == 81 || substr($code, 2, 4) == 83)) {
-                     // NOTE: we now read UNIQUE_WORK_ID from column index 8 if present
+                } else if (
+                    $t[0] != "SECTION" && $t[0] != "" &&
+                    strpos($t[4], "SYS-GENERATED") === false &&
+                    $code != "" && $subAllocationCode != "" &&
+                    (substr($code, 2, 4) < 66 || substr($code, 2, 4) == 81 || substr($code, 2, 4) == 83)
+                ) {
+                    // NOTE: we now read UNIQUE_WORK_ID from column index 8 if present
                     array_push(
                         $allocations[$code][$subAllocationCode],
                         array(
@@ -95,7 +100,7 @@
                                 <th style="width:180px;">Sec. - CO6 / CO7</th>
                                 <!--<th style="width:110px;">DATE </th>-->
                                 <th>BILL DESC / PARTY NAME </th>
-                                <th>UWID </th>
+                                <th>UWID</th>
                                 <?php $total = array();
                                 foreach ($subAllocation as $k => $v) {
 
@@ -111,67 +116,37 @@
                             $allocationArray = array();
                             foreach ($allocations[$allocation] as $key => $subAllocations) {
                                 foreach ($subAllocations as $subAllocation2) {
-                                    // NOTE: Group by CO6, accumulate values from same allocation if duplicate
-                                    if (array_key_exists($subAllocation2['CO6'], $allocationArray)) {
-                                        // CO6 exists, add/accumulate values for this allocation
-                                        if ($subAllocation2["CREDIT"] != 0 && $subAllocation2["DEBIT"] != 0) {
-                                            if (array_key_exists($key, $allocationArray[$subAllocation2['CO6']])) {
-                                                // Allocation column already exists, append values
-                                                $allocationArray[$subAllocation2['CO6']][$key][] = $subAllocation2["DEBIT"];
-                                                $allocationArray[$subAllocation2['CO6']][$key][] = -$subAllocation2["CREDIT"];
-                                            } else {
-                                                // New allocation column
-                                                $allocationArray[$subAllocation2['CO6']][$key] = array($subAllocation2["DEBIT"], -$subAllocation2["CREDIT"]);
-                                            }
-                                            $total[$key] = round($total[$key] + $subAllocation2["DEBIT"] - $subAllocation2["CREDIT"], 2);
-                                        } else if ($subAllocation2["DEBIT"] != 0 && $subAllocation2["CREDIT"] == 0) {
-                                            if (array_key_exists($key, $allocationArray[$subAllocation2['CO6']])) {
-                                                $allocationArray[$subAllocation2['CO6']][$key][] = $subAllocation2["DEBIT"];
-                                            } else {
-                                                $allocationArray[$subAllocation2['CO6']][$key] = array($subAllocation2["DEBIT"]);
-                                            }
-                                            $total[$key] = round($total[$key] + $subAllocation2["DEBIT"], 2);
-                                        } else if ($subAllocation2["DEBIT"] == 0 && $subAllocation2["CREDIT"] != 0) {
-                                            if (array_key_exists($key, $allocationArray[$subAllocation2['CO6']])) {
-                                                $allocationArray[$subAllocation2['CO6']][$key][] = -$subAllocation2["CREDIT"];
-                                            } else {
-                                                $allocationArray[$subAllocation2['CO6']][$key] = array(-$subAllocation2["CREDIT"]);
-                                            }
-                                            $total[$key] = round($total[$key] - $subAllocation2["CREDIT"], 2);
-                                        } else {
-                                            if (!array_key_exists($key, $allocationArray[$subAllocation2['CO6']])) {
-                                                $allocationArray[$subAllocation2['CO6']][$key] = array(0);
-                                            }
-                                        }
-                                    } else {
-                                        // CO6 doesn't exist, create new entry
-                                        if ($subAllocation2["DEBIT"] != 0 && $subAllocation2["CREDIT"] != 0) {
-                                            $allocationArray[$subAllocation2['CO6']] = array(
-                                                "SubAllocation" => $key, "SECTION" => $subAllocation2["SECTION"], "CO6" => $subAllocation2["CO6"], "CO7" => $subAllocation2["CO7"], "BOOK DATE" => $subAllocation2["BOOK DATE"],
-                                                "PARTY NAME" => $subAllocation2["PARTY NAME"], "BILL DESC" => $subAllocation2["BILL DESC"], "UNIQUE_WORK_ID" => $subAllocation2["UNIQUE_WORK_ID"],
-                                                $key => array($subAllocation2["DEBIT"], -$subAllocation2["CREDIT"])
-                                            );
-                                            $total[$key] = round($total[$key] + $subAllocation2["DEBIT"] - $subAllocation2["CREDIT"], 2);
-                                        } else if ($subAllocation2["DEBIT"] != 0 && $subAllocation2["CREDIT"] == 0) {
-                                            $allocationArray[$subAllocation2['CO6']] = array(
-                                                "SubAllocation" => $key, "SECTION" => $subAllocation2["SECTION"], "CO6" => $subAllocation2["CO6"], "CO7" => $subAllocation2["CO7"], "BOOK DATE" => $subAllocation2["BOOK DATE"],
-                                                "PARTY NAME" => $subAllocation2["PARTY NAME"], "BILL DESC" => $subAllocation2["BILL DESC"], "UNIQUE_WORK_ID" => $subAllocation2["UNIQUE_WORK_ID"],
-                                                $key => array($subAllocation2["DEBIT"])
-                                            );
-                                            $total[$key] = round($total[$key] + $subAllocation2["DEBIT"], 2);
-                                        } else if ($subAllocation2["DEBIT"] == 0 && $subAllocation2["CREDIT"] != 0) {
-                                            $allocationArray[$subAllocation2['CO6']] = array(
-                                                "SubAllocation" => $key, "SECTION" => $subAllocation2["SECTION"], "CO6" => $subAllocation2["CO6"], "CO7" => $subAllocation2["CO7"], "BOOK DATE" => $subAllocation2["BOOK DATE"],
-                                                "PARTY NAME" => $subAllocation2["PARTY NAME"], "BILL DESC" => $subAllocation2["BILL DESC"], "UNIQUE_WORK_ID" => $subAllocation2["UNIQUE_WORK_ID"],
-                                                $key => array(-$subAllocation2["CREDIT"])
-                                            );
-                                            $total[$key] = round($total[$key] - $subAllocation2["CREDIT"], 2);
-                                        } else {
-                                            $allocationArray[$subAllocation2['CO6']] = array(
-                                                "SubAllocation" => $key, "SECTION" => $subAllocation2["SECTION"], "CO6" => $subAllocation2["CO6"], "CO7" => $subAllocation2["CO7"], "BOOK DATE" => $subAllocation2["BOOK DATE"],
-                                                "PARTY NAME" => $subAllocation2["PARTY NAME"], "BILL DESC" => $subAllocation2["BILL DESC"], "UNIQUE_WORK_ID" => $subAllocation2["UNIQUE_WORK_ID"], $key => array(0)
-                                            );
-                                        }
+
+                                    // DO NOT GROUP: each excel row becomes a unique row
+                                    $groupKey = uniqid('', true);
+
+                                    $allocationArray[$groupKey] = array(
+                                        "SubAllocation" => $key,
+                                        "SECTION" => $subAllocation2["SECTION"],
+                                        "CO6" => $subAllocation2["CO6"],
+                                        "CO7" => $subAllocation2["CO7"],
+                                        "BOOK DATE" => $subAllocation2["BOOK DATE"],
+                                        "PARTY NAME" => $subAllocation2["PARTY NAME"],
+                                        "BILL DESC" => $subAllocation2["BILL DESC"],
+                                        "UNIQUE_WORK_ID" => isset($subAllocation2["UNIQUE_WORK_ID"]) ? $subAllocation2["UNIQUE_WORK_ID"] : "" // <--- NEW
+                                    );
+
+                                    $debit = (float)$subAllocation2["DEBIT"];
+                                    $credit = (float)$subAllocation2["CREDIT"];
+
+                                    if ($debit == 0 && $credit == 0) {
+                                        continue;
+                                    }
+
+                                    if ($debit != 0 && $credit != 0) {
+                                        $allocationArray[$groupKey][$key] = array($debit, -$credit);
+                                        $total[$key] = round($total[$key] + $debit - $credit, 2);
+                                    } elseif ($debit != 0 && $credit == 0) {
+                                        $allocationArray[$groupKey][$key] = array($debit);
+                                        $total[$key] = round($total[$key] + $debit, 2);
+                                    } elseif ($debit == 0 && $credit != 0) {
+                                        $allocationArray[$groupKey][$key] = array(-$credit);
+                                        $total[$key] = round($total[$key] - $credit, 2);
                                     }
                                 }
                             }
@@ -187,11 +162,11 @@
                                 // echo "<td>".$row["BOOK DATE"]."</td>";
                                 echo "<td>";
                                 echo $row["BILL DESC"] . " M/S " . $row["PARTY NAME"] . "<br/>";
-                                /*END UEID PRINT*/
-                                echo "<br/><br/><br/></td>";
                                 echo "<td>";
-                                echo $row["UNIQUE_WORK_ID"];
+                                echo $row["UNIQUE_WORK_ID"] . "<br/>";
+                                
                                 echo "<br/><br/><br/></td>";
+
                                 $subTotal = 0;
                                 foreach ($subAllocation as $k => $v) {
                                     if (array_key_exists($k, $row)) {
@@ -199,24 +174,14 @@
                                             echo "<td class='text-right'>" . $row[$k] . "</td>";
                                         } else if ($k !== "") {
                                             echo "<td class='text-right'>";
-                                            // Display all values in the array with <br/> between them
-                                            $first = true;
-                                            foreach ($row[$k] as $value) {
-                                                if (!$first) {
-                                                    echo "<br/>";
-                                                }
-                                                echo $value;
-                                                $first = false;
-                                            }
+                                            echo (isset($row[$k][0])) ? $row[$k][0] : "";
+                                            echo (isset($row[$k][0]) && isset($row[$k][1])) ? "<br/>" : "";
+                                            echo (isset($row[$k][1])) ? $row[$k][1] : "";
                                             echo "</td>";
                                         }
-                                        // Calculate subtotal - sum all values in the array
-                                        if (is_array($row[$k])) {
-                                            foreach ($row[$k] as $value) {
-                                                $subTotal = $subTotal + bcadd($value, '0', 2);
-                                            }
-                                        } else {
-                                            $subTotal = $subTotal + bcadd($row[$k][0], '0', 2);
+                                        $subTotal = $subTotal + bcadd($row[$k][0], '0', 2);
+                                        if ((isset($row[$k][0]) && isset($row[$k][1]))) {
+                                            $subTotal = $subTotal + $row[$k][1];
                                         }
                                     } else {
                                         echo "<td class='text-right'>---</td>";
@@ -255,7 +220,7 @@
                         </tbody>
                     </table>
                 </div>
-                <div class='text-center'><button id="<?php echo substr($allocation, 0, 2) . '-' . substr($allocation, 2, 4); ?>" class="btn">PRINT</button></div></br />
+                <div class='text-center'><button id="<?php echo substr($allocation, 0, 2) . '-' . substr($allocation, 2, 4); ?>" class="btn">PRINT</button></br />
             <?php
             }
             ?>
@@ -358,8 +323,6 @@
             // return tbody;
         }
 
-        // $(document).ready(function() {
-
         $(".lastInput").change(function() {
 
             var key = this.id.substring(0, 2);
@@ -442,19 +405,15 @@
                 }, 500);
                 $(".last").show();
                 console.log("myMap.entries()", myMap.entries());
-                // return;
 
                 // NOTE above for loop is written to preserve the new rows & it's data after printing operation is done  
                 for (const [key, value] of myMap.entries()) {
                     let valueToBeUpdated = $("#" + key).text();
                     $("#" + key).html(value);
                     $("#" + key + "Value").val(valueToBeUpdated);
-                    // console.log($(newAllocation5Value));
                 }
             });
         });
-
-        // });
     </script>
 </body>
 
