@@ -8,6 +8,19 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
     <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
+    <!-- Load XLSX library with multiple CDN fallbacks -->
+    <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script>
+        // Fallback loader if unpkg fails
+        if (typeof XLSX === 'undefined') {
+            var script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+            document.head.appendChild(script);
+            script.onerror = function() {
+                console.error('Failed to load XLSX from all CDNs. Excel export will not work.');
+            };
+        }
+    </script>
     <style>
         .data thead tr th {
             width: 115px;
@@ -326,7 +339,10 @@
                         </tbody>
                     </table>
                 </div>
-                <div class='text-center'><button id="<?php echo substr($allocation, 0, 2) . '-' . substr($allocation, 2, 4); ?>" class="btn">PRINT</button></div></br />
+                <div class='text-center'>
+                    <button id="<?php echo substr($allocation, 0, 2) . '-' . substr($allocation, 2, 4); ?>-pdf" class="btn btn-primary btn-sm" type="button" title="Print this allocation table as PDF">PRINT PDF</button>
+                    <button id="<?php echo substr($allocation, 0, 2) . '-' . substr($allocation, 2, 4); ?>-excel" class="btn btn-info btn-sm" type="button" title="Export this allocation table as Excel">PRINT EXCEL</button>
+                </div></br />
             <?php
             }
             ?>
@@ -377,9 +393,15 @@
                     </div>
                 </div>
                 <div class="btn-toolbar" style="margin: 15px 0;">
-                    <div class="btn-group" role="group" aria-label="Print Actions">
-                        <button id="Summary" class="btn btn-primary" type="button" title="Print summary table only">PRINT SUMMARY</button>
-                        <button id="PrintAll" class="btn btn-success" type="button" title="Print all allocation tables and summary in one document">PRINT ALL</button>
+                    <div class="btn-group" role="group" aria-label="PDF Export">
+                        <button id="Summary" class="btn btn-primary" type="button" title="Print summary table as PDF">PRINT PDF</button>
+                        <button id="PrintAll" class="btn btn-success" type="button" title="Print all allocation tables and summary as PDF in one document">PRINT ALL PDF</button>
+                    </div>
+                </div>
+                <div class="btn-toolbar" style="margin: 15px 0;">
+                    <div class="btn-group" role="group" aria-label="Excel Export">
+                        <button id="ExcelSummary" class="btn btn-info" type="button" title="Export summary table as Excel">EXPORT EXCEL</button>
+                        <button id="ExcelAll" class="btn btn-success" type="button" title="Export all allocation tables and summary as Excel">EXPORT ALL EXCEL</button>
                     </div>
                 </div>
                 <p style='text-align:center; font-size:24px;'><b><a href="index.php">BACK</a></b></p>
@@ -493,6 +515,278 @@
         }
 
         /**
+         * Create a formatted Excel worksheet from data array
+         * Properly builds cell objects with formatting, borders, colors, and fonts
+         * 
+         * @param {Array} ws_data - 2D array of worksheet data
+         * @param {number} headerRowIndex - Row index where headers start (0-based)
+         * @param {string} titleText - Optional title text
+         * @returns {Object} Formatted XLSX worksheet
+         */
+        function createFormattedWorksheet(ws_data, headerRowIndex, titleText) {
+            if (!ws_data || ws_data.length === 0) return XLSX.utils.aoa_to_sheet([]);
+
+            var ws = {};
+            
+            // Define formatting styles
+            var titleFill = { fgColor: { rgb: 'FF1F4E78' } }; // Darker blue
+            var titleFont = { bold: true, color: { rgb: 'FFFFFFFF' }, size: 14 };
+            var titleAlignment = { horizontal: 'left', vertical: 'center', wrapText: true };
+            
+            var headerFill = { fgColor: { rgb: 'FF4472C4' } }; // Lighter blue
+            var headerFont = { bold: true, color: { rgb: 'FFFFFFFF' }, size: 11 };
+            var headerAlignment = { horizontal: 'center', vertical: 'center', wrapText: true };
+            
+            var dataAlignment = { horizontal: 'left', vertical: 'center', wrapText: false };
+            var numberAlignment = { horizontal: 'right', vertical: 'center', wrapText: false };
+            
+            var borderStyle = { style: 'thin', color: { rgb: 'FF000000' } };
+            var borders = { 
+                top: borderStyle, 
+                bottom: borderStyle, 
+                left: borderStyle, 
+                right: borderStyle 
+            };
+
+            // Calculate column widths
+            var colWidths = [];
+            var numCols = 0;
+            ws_data.forEach(function(row) {
+                numCols = Math.max(numCols, row.length);
+                row.forEach(function(cell, colIdx) {
+                    var cellLength = String(cell).length;
+                    colWidths[colIdx] = Math.max(colWidths[colIdx] || 12, Math.min(cellLength + 3, 50));
+                });
+            });
+
+            // Build worksheet with formatted cells
+            for (var R = 0; R < ws_data.length; R++) {
+                for (var C = 0; C < numCols; C++) {
+                    var cellAddress = XLSX.utils.encode_col(C) + XLSX.utils.encode_row(R);
+                    var cellValue = ws_data[R][C];
+                    
+                    // Create cell object with value and type
+                    var cellObj = {
+                        v: cellValue,
+                        t: 's' // Default to string
+                    };
+
+                    // Determine if value is numeric
+                    var numValue = Number(cellValue);
+                    var isNumeric = !isNaN(numValue) && cellValue !== '' && cellValue !== null;
+                    
+                    if (isNumeric) {
+                        cellObj.t = 'n';
+                        cellObj.v = numValue;
+                        
+                        // Apply number formatting
+                        if (String(cellValue).includes('.')) {
+                            cellObj.numFmt = '0.00';
+                        } else {
+                            cellObj.numFmt = '0';
+                        }
+                    } else {
+                        cellObj.t = 's';
+                        cellObj.v = String(cellValue);
+                    }
+
+                    // Apply borders to all cells
+                    cellObj.border = borders;
+
+                    // Title row formatting
+                    if (titleText && R === 0) {
+                        cellObj.fill = titleFill;
+                        cellObj.font = titleFont;
+                        cellObj.alignment = titleAlignment;
+                    }
+                    // Spacing row
+                    else if (titleText && R === 1) {
+                        cellObj.border = borders;
+                    }
+                    // Header row formatting
+                    else if (R === headerRowIndex) {
+                        cellObj.fill = headerFill;
+                        cellObj.font = headerFont;
+                        cellObj.alignment = headerAlignment;
+                    }
+                    // Data rows
+                    else if (R > headerRowIndex) {
+                        cellObj.alignment = isNumeric ? numberAlignment : dataAlignment;
+                    }
+
+                    ws[cellAddress] = cellObj;
+                }
+            }
+
+            // Set worksheet range
+            if (numCols > 0 && ws_data.length > 0) {
+                ws['!ref'] = 'A1:' + XLSX.utils.encode_col(numCols - 1) + XLSX.utils.encode_row(ws_data.length - 1);
+            }
+
+            // Set column widths
+            ws['!cols'] = colWidths.map(function(width) {
+                return { wch: width };
+            });
+
+            // Set row heights
+            ws['!rows'] = [];
+            if (titleText) {
+                ws['!rows'][0] = { hpt: 28 }; // Title row height
+                ws['!rows'][1] = { hpt: 5 };  // Spacing row
+                ws['!rows'][2] = { hpt: 25 }; // Header row
+            } else {
+                ws['!rows'][0] = { hpt: 25 }; // Header row
+            }
+            
+            // Data rows
+            for (var i = headerRowIndex + 1; i < ws_data.length; i++) {
+                ws['!rows'][i] = { hpt: 18 };
+            }
+
+            return ws;
+        }
+
+        /**
+         * Apply Excel formatting to worksheet cells
+         * Handles borders, colors, fonts, alignment, and cell values
+         * 
+         * @param {Object} ws - XLSX worksheet object
+         * @param {Array} ws_data - 2D array of worksheet data
+         * @param {number} headerRowIndex - Row index where actual headers start (0-based)
+         * @param {string} titleText - Title text if added
+         */
+        function applyExcelFormatting(ws, ws_data, headerRowIndex, titleText) {
+            // This function is now deprecated - use createFormattedWorksheet instead
+            // But keeping for compatibility
+            return ws;
+        }
+
+        /**
+         * Export table data to Excel workbook format with professional formatting
+         * Includes title row, styled headers, borders, and proper column widths
+         * 
+         * @param {string} tableHtml - HTML table content to convert
+         * @param {string} sheetName - Excel sheet name (max 31 chars)
+         * @param {string} fileName - Output file name (without .xlsx)
+         * @param {string} titleText - Optional title to display above table
+         */
+        function exportToExcel(tableHtml, sheetName, fileName, titleText) {
+            console.log('exportToExcel called with:', sheetName, fileName);
+            
+            // Check if XLSX library is loaded
+            if (typeof XLSX === 'undefined') {
+                alert('Excel export library not loaded. Please refresh the page and try again.');
+                console.error('XLSX library is not available');
+                return;
+            }
+            
+            try {
+                // Create a temporary div and set the HTML to parse
+                var tmpDiv = $('<div>' + tableHtml + '</div>');
+                var table = tmpDiv.find('table').first();
+                
+                if (table.length === 0) {
+                    alert('No table found to export');
+                    console.error('No table found in HTML');
+                    return;
+                }
+
+                // Parse table to array format
+                var ws_data = [];
+                
+                // Add title row if provided
+                if (titleText) {
+                    ws_data.push([titleText]);
+                    ws_data.push([]); // Empty row for spacing
+                }
+                
+                table.find('tr').each(function() {
+                    var rowData = [];
+                    $(this).find('th, td').each(function() {
+                        rowData.push($(this).text().trim());
+                    });
+                    ws_data.push(rowData);
+                });
+
+                console.log('Parsed rows:', ws_data.length);
+
+                // Create worksheet with proper formatting (includes borders, colors, fonts)
+                var dataStartRow = titleText ? 2 : 0;
+                var ws = createFormattedWorksheet(ws_data, dataStartRow, titleText);
+                
+                var wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, sheetName.substring(0, 31));
+
+                // Download the file
+                var timestamp = new Date().toISOString().split('T')[0];
+                var downloadFileName = fileName + '_' + timestamp + '.xlsx';
+                XLSX.writeFile(wb, downloadFileName);
+                console.log('Excel file exported:', downloadFileName);
+            } catch (e) {
+                console.error('Error exporting to Excel:', e);
+                alert('Error exporting to Excel: ' + e.message);
+            }
+        }
+
+        /**
+         * Export multiple tables to a single Excel workbook with multiple sheets
+         * Each sheet features professional formatting with styled headers and borders
+         * 
+         * @param {Array} tables - Array of {html, name} objects
+         * @param {string} fileName - Output file name (without .xlsx)
+         */
+        function exportMultipleTablesToExcel(tables, fileName) {
+            console.log('exportMultipleTablesToExcel called with', tables.length, 'tables');
+            
+            // Check if XLSX library is loaded
+            if (typeof XLSX === 'undefined') {
+                alert('Excel export library not loaded. Please refresh the page and try again.');
+                console.error('XLSX library is not available');
+                return;
+            }
+            
+            try {
+                var wb = XLSX.utils.book_new();
+
+                tables.forEach(function(tableObj) {
+                    var tmpDiv = $('<div>' + tableObj.html + '</div>');
+                    var table = tmpDiv.find('table').first();
+                    
+                    if (table.length > 0) {
+                        var ws_data = [];
+                        
+                        // Add title row
+                        ws_data.push([tableObj.name]);
+                        ws_data.push([]); // Spacing row
+                        
+                        table.find('tr').each(function() {
+                            var rowData = [];
+                            $(this).find('th, td').each(function() {
+                                rowData.push($(this).text().trim());
+                            });
+                            ws_data.push(rowData);
+                        });
+
+                        // Create worksheet with proper formatting
+                        var ws = createFormattedWorksheet(ws_data, 2, tableObj.name);
+                        
+                        XLSX.utils.book_append_sheet(wb, ws, tableObj.name.substring(0, 31));
+                        console.log('Added sheet:', tableObj.name);
+                    }
+                });
+
+                // Download the file
+                var timestamp = new Date().toISOString().split('T')[0];
+                var downloadFileName = fileName + '_' + timestamp + '.xlsx';
+                XLSX.writeFile(wb, downloadFileName);
+                console.log('Excel file exported:', downloadFileName);
+            } catch (e) {
+                console.error('Error exporting to Excel:', e);
+                alert('Error exporting to Excel: ' + e.message);
+            }
+        }
+
+        /**
          * EVENT HANDLERS
          */
 
@@ -545,12 +839,12 @@
             });
 
             /**
-             * Print Individual Table Button (all .btn except #PrintAll)
-             * Prints a single allocation table for the clicked button
+             * PDF: Print Individual Allocation Table Button
+             * Prints a single allocation as PDF
              */
-            $(".btn").not("#PrintAll").click(function() {
-                var buttonId = this.id;
-                var tableId = "#table" + buttonId;
+            $("button[id$='-pdf']").click(function() {
+                var allocCode = this.id.replace('-pdf', '');
+                var tableId = "#table" + allocCode;
 
                 // Hide Last Month column for cleaner print
                 $(".last").hide();
@@ -569,7 +863,7 @@
                 sortTable($("#tableBody"), 'asc');
 
                 // Print the document
-                printDocument(tableContent, 'Allocation Day Book');
+                printDocument(tableContent, 'Allocation Day Book - ' + allocCode);
 
                 // Restore UI state
                 setTimeout(function() {
@@ -583,8 +877,56 @@
             });
 
             /**
-             * Print All Button: Assemble and print all allocation tables with summary
-             * Each allocation table starts on a new page, summary on final page
+             * EXCEL: Export Individual Allocation Table Button
+             * Exports a single allocation as Excel
+             */
+            $("button[id$='-excel']").click(function(e) {
+                e.preventDefault();
+                var allocCode = this.id.replace('-excel', '');
+                console.log('Individual excel export clicked for allocation:', allocCode);
+                
+                var tableId = "#table" + allocCode;
+                var tableContent = $(tableId).html();
+                
+                if (!tableContent) {
+                    console.warn('Table not found for allocation:', allocCode);
+                    alert('Table not found for allocation: ' + allocCode);
+                    return;
+                }
+
+                // Export to Excel with title
+                exportToExcel(tableContent, 'Allocation ' + allocCode, 'DayBook_' + allocCode, 'Allocation ' + allocCode);
+            });
+
+            /**
+             * PDF: Print Summary Only Button
+             */
+            $("#Summary").click(function() {
+                // Hide Last Month column for cleaner print
+                $(".last").hide();
+
+                // Print the summary table
+                printDocument($('#tableSummary').html(), 'Day Book Summary');
+
+                // Restore UI state
+                setTimeout(function() {
+                    $(".last").show();
+                }, 600);
+            });
+
+            /**
+             * EXCEL: Export Summary Table Only Button
+             */
+            $("#ExcelSummary").click(function(e) {
+                e.preventDefault();
+                console.log('ExcelSummary button clicked');
+                // Export summary table to Excel with title
+                exportToExcel($('#tableSummary').html(), 'Summary', 'DayBook_Summary', 'Day Book Summary');
+            });
+
+            /**
+             * PDF: Print All Allocations and Summary Button
+             * Assemble and print all allocation tables with summary, each on new page
              */
             $("#PrintAll").click(function() {
                 // Hide Last Month column for cleaner print
@@ -599,6 +941,8 @@
 
                 // Assemble all allocation tables with page breaks
                 var combinedHtml = '';
+                
+                // Collect all allocation tables (exclude summary)
                 $("div[id^='table']").not('#tableSummary').each(function(index) {
                     // Add page break before each table except the first
                     if (index > 0) {
@@ -607,7 +951,7 @@
                     combinedHtml += '<div>' + $(this).html() + '</div>';
                 });
 
-                // Append summary table as the final page
+                // Add summary table as the final page
                 combinedHtml += '<div style="page-break-before:always;"></div>' + $('#tableSummary').html();
 
                 // Print the combined document
@@ -622,6 +966,43 @@
                         $("#" + key + "Value").val(displayValue);
                     }
                 }, 600);
+            });
+
+            /**
+             * EXCEL: Export All Allocations and Summary Button
+             * Exports all tables to a multi-sheet Excel workbook
+             */
+            $("#ExcelAll").click(function(e) {
+                e.preventDefault();
+                console.log('ExcelAll button clicked');
+                
+                var tables = [];
+
+                // Collect all allocation tables
+                $("div[id^='table']").not('#tableSummary').each(function() {
+                    var allocCode = this.id.replace('table', '');
+                    tables.push({
+                        html: $(this).html(),
+                        name: 'Allocation_' + allocCode
+                    });
+                });
+
+                // Add summary table as last sheet
+                tables.push({
+                    html: $('#tableSummary').html(),
+                    name: 'Summary'
+                });
+
+                console.log('Total sheets to export:', tables.length);
+                
+                if (tables.length === 0) {
+                    alert('No tables found to export');
+                    console.warn('No tables found for export');
+                    return;
+                }
+
+                // Export to Excel with multiple sheets
+                exportMultipleTablesToExcel(tables, 'DayBook_All');
             });
         });
     </script>
