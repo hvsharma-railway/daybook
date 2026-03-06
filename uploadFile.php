@@ -7,36 +7,7 @@
         <?php
             try{
                 
-            if( isset($_POST["uploadVouchers"])){
-                $form = $_FILES['capitalHeadFile'];
-                $capitalHeadFile = "CapitalHead.".pathinfo($form['name'], PATHINFO_EXTENSION);
-                $tmp_path = $form['tmp_name'];
-                 
-                if ( isset($_FILES['capitalHeadFile']) && move_uploaded_file($tmp_path, $capitalHeadFile)){ ?>
-                     <script type="text/javascript">
-                       swal({
-                            title: "File Uploaded Successfully",
-                            text: "Now processing for your voucher list! ",
-                            icon: "success",
-                            button: "Ok!",
-                        }).then(()=>{
-                            window.location.href="vouchers.php";
-                        });
-                     </script>
-                <?php }else{ ?>
-                     <script type="text/javascript">
-                       swal({
-                            title: "File couln't uploaded",
-                            text: "Error while uploading file! ",
-                            icon: "error",
-                            button: "Ok!",
-                        }).then(()=>{
-                            window.location.href="index.php";
-                        });
-                   </script>
-                <?php }
-            }
-            else if(isset($_POST["uploadSuspenseHead"])){
+            if(isset($_POST["uploadSuspenseHead"])){
                 $form1 = $_FILES['file'];
                 $suspenseHeadFile = "BOOK.".pathinfo($form1['name'], PATHINFO_EXTENSION);
                 $tmp_path1 = $form1['tmp_name'];
@@ -54,7 +25,7 @@
                             icon: "success",
                             button: "Ok!",
                         }).then(()=>{
-                            window.location.href="convert.php";
+                            window.location.href="view.php";
                         });
                      </script>
                 <?php }else { ?>

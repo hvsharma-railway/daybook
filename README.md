@@ -15,11 +15,16 @@ This project is now configured to run with Docker, including a MySQL database an
    docker-compose up --build
    ```
 
-3. The application will be available at:
+3. After the containers are up, run Composer install to ensure dependencies are up-to-date:
+   ```
+   docker-compose exec web composer install
+   ```
+
+4. The application will be available at:
    - **Day Book Portal**: http://localhost:32768
    - **phpMyAdmin**: http://localhost:32770
 
-4. Database credentials:
+5. Database credentials:
    - Host: db (from within containers) or localhost:32769 (from host)
    - Database: daybook
    - User: user
@@ -28,7 +33,7 @@ This project is now configured to run with Docker, including a MySQL database an
 
 ## Services
 
-- **web**: PHP 8.1 with Apache, serving the application (host port 32768 → container port 80)
+- **web**: PHP 7.4 with Apache, serving the application (host port 32768 → container port 80)
 - **db**: MySQL 8.0 database (host port 32769 → container port 3306)
 - **phpmyadmin**: phpMyAdmin for database management (host port 32770 → container port 80)
 
