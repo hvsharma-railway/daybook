@@ -8,16 +8,16 @@
             try{
                 
             if(isset($_POST["uploadSuspenseHead"])){
-                $form1 = $_FILES['file'];
-                $suspenseHeadFile = "BOOK.".pathinfo($form1['name'], PATHINFO_EXTENSION);
-                $tmp_path1 = $form1['tmp_name'];
+                $form1 = isset($_FILES['file']) ? $_FILES['file'] : array();
+                $suspenseHeadFile = "BOOK.".pathinfo(isset($form1['name']) ? $form1['name'] : '', PATHINFO_EXTENSION);
+                $tmp_path1 = isset($form1['tmp_name']) ? $form1['tmp_name'] : '';
                 
-                $form2 = $_FILES['ueid'];
-                $ueidFile = "UEID.".pathinfo($form2['name'], PATHINFO_EXTENSION);
-                $tmp_path2 = $form2['tmp_name'];
+                $form2 = isset($_FILES['ueid']) ? $_FILES['ueid'] : array();
+                $ueidFile = "UEID.".pathinfo(isset($form2['name']) ? $form2['name'] : '', PATHINFO_EXTENSION);
+                $tmp_path2 = isset($form2['tmp_name']) ? $form2['tmp_name'] : '';
                 
-                if($_FILES['file']['name'] == "" || ($_FILES['file']['name'] != "" && move_uploaded_file($tmp_path1, $suspenseHeadFile))){
-                    if($_FILES['ueid']['name'] == "" || ($_FILES['ueid']['name'] != "" && move_uploaded_file($tmp_path2, $ueidFile))){ ?>
+                if((!isset($form1['name']) || $form1['name'] == "") || (isset($form1['name']) && $form1['name'] != "" && move_uploaded_file($tmp_path1, $suspenseHeadFile))){
+                    if((!isset($form2['name']) || $form2['name'] == "") || (isset($form2['name']) && $form2['name'] != "" && move_uploaded_file($tmp_path2, $ueidFile))){ ?>
                     <script type="text/javascript">
                        swal({
                             title: "File Uploaded Successfully",
