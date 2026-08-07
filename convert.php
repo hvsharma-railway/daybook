@@ -326,7 +326,10 @@
                         </tbody>
                     </table>
                 </div>
-                <div class='text-center'><button id="<?php echo substr($allocation, 0, 2) . '-' . substr($allocation, 2, 4); ?>" class="btn">PRINT</button></div></br />
+                <div class='text-center'>
+                    <button id="<?php echo substr($allocation, 0, 2) . '-' . substr($allocation, 2, 4); ?>" class="btn">PRINT</button>
+                    <button type="button" class="btn btn-default export-btn" data-allocation="<?php echo substr($allocation, 0, 2) . '-' . substr($allocation, 2, 4); ?>">EXPORT EXCEL</button>
+                </div></br />
             <?php
             }
             ?>
@@ -380,6 +383,7 @@
                     <div class="btn-group" role="group" aria-label="Print Actions">
                         <button id="Summary" class="btn btn-primary" type="button" title="Print summary table only">PRINT SUMMARY</button>
                         <button id="PrintAll" class="btn btn-success" type="button" title="Print all allocation tables and summary in one document">PRINT ALL</button>
+                        <button id="ExportAll" class="btn btn-info export-btn" type="button" data-export-url="exportDayBookExcel.php?mode=all">EXPORT ALL EXCEL</button>
                     </div>
                 </div>
                 <p style='text-align:center; font-size:24px;'><b><a href="index.php">BACK</a></b></p>
@@ -545,10 +549,51 @@
             });
 
             /**
-             * Print Individual Table Button (all .btn except #PrintAll)
+             * Excel export buttons trigger workbook download
+             */
+            $(".export-btn").click(function(e) {
+                e.preventDefault();
+                var exportUrl = $(this).data('export-url');
+                if (!exportUrl) {
+                    exportUrl = 'exportDayBookExcel.php?mode=single&allocation=' + encodeURIComponent($(this).data('allocation'));
+                }
+
+                if ($(this).attr('id') === 'ExportAll') {
+                    var summaryData = [];
+                    $("#tableSummary tbody tr").not('#lastRow').each(function() {
+                        var $row = $(this);
+                        var label = $row.find('.newAllocation').val() || $row.find('td').first().text().trim();
+                        var lastValue = $row.find('.lastInput').val() || '0.00';
+                        var forValue = $row.find('td').eq(2).text().trim();
+                        var toValue = $row.find('td').eq(3).text().trim();
+
+                        summaryData.push({
+                            label: label,
+                            last: lastValue,
+                            for: forValue,
+                            to: toValue
+                        });
+                    });
+
+                    var $totalRow = $('#lastRow');
+                    summaryData.push({
+                        label: 'TOTAL',
+                        last: $('#totalLastMonth').val() || '0.00',
+                        for: $totalRow.find('td').eq(2).text().trim(),
+                        to: $totalRow.find('td').eq(3).text().trim()
+                    });
+
+                    exportUrl += '&summary=' + encodeURIComponent(JSON.stringify(summaryData));
+                }
+
+                window.location.href = exportUrl;
+            });
+
+            /**
+             * Print Individual Table Button (all .btn except #PrintAll and export buttons)
              * Prints a single allocation table for the clicked button
              */
-            $(".btn").not("#PrintAll").click(function() {
+            $(".btn").not("#PrintAll").not(".export-btn").click(function() {
                 var buttonId = this.id;
                 var tableId = "#table" + buttonId;
 
