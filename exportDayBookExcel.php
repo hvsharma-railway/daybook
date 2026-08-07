@@ -57,7 +57,13 @@ try {
         $summarySheet = $workbook->createSheet();
         $summarySheet->setTitle('Summary');
         $summarySheet->mergeCells('A1:C1');
-        $summarySheet->setCellValue('A1', 'DAY BOOK SUMMARY');
+        $summaryHeading = 'Daybook Summary';
+        if ($selectionKey !== '') {
+            $summaryHeading .= ' - Allocation ' . substr($selectionKey, 0, 2) . '-' . substr($selectionKey, 2, 4);
+        } else {
+            $summaryHeading .= ' - Allocation 20';
+        }
+        $summarySheet->setCellValue('A1', $summaryHeading);
         $summarySheet->setCellValue('A2', 'Allocation');
         $summarySheet->setCellValue('B2', 'For The Month');
         $summarySheet->setCellValue('C2', 'To The Month');
@@ -160,8 +166,10 @@ function writeAllocationSheet($sheet, $allocation, $subAllocation, $allocations,
 {
     $sheet->setCellValue('A1', '📋 DAY BOOK ' . substr($heading, 22) . ' - ALLOCATION ' . $allocCode);
     $sheet->mergeCells('A1:' . getExcelColumnName(count($subAllocation) + 4) . '1');
-    $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(13);
-    $sheet->getRowDimension(1)->setRowHeight(20);
+    $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+    $sheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+    $sheet->getStyle('A1')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+    $sheet->getRowDimension(1)->setRowHeight(24);
 
     $headers = array('Sec. - CO6 / CO7', 'BILL DESC / PARTY NAME', 'UWID');
     foreach ($subAllocation as $k => $v) {
@@ -173,19 +181,21 @@ function writeAllocationSheet($sheet, $allocation, $subAllocation, $allocations,
     foreach ($headers as $index => $header) {
         $sheet->setCellValue(getExcelColumnName($index + 1) . $row, $header);
     }
-    $sheet->getStyle('A3:' . getExcelColumnName(count($headers)) . '3')->getFont()->setBold(true);
+    $sheet->getStyle('A3:' . getExcelColumnName(count($headers)) . '3')->getFont()->setBold(true)->setSize(11);
     $sheet->getStyle('A3:' . getExcelColumnName(count($headers)) . '3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFD9EAF7');
+    $sheet->getStyle('A3:' . getExcelColumnName(count($headers)) . '3')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
     $data = buildAllocationData($allocations, $allocation, $subAllocation);
     $row = 4;
     foreach ($data['rows'] as $dataRow) {
         foreach ($dataRow as $idx => $value) {
             $cellCoordinate = getExcelColumnName($idx + 1) . $row;
-            if ($idx === 2 && is_numeric(trim((string) $value))) {
-                $sheet->setCellValueExplicit($cellCoordinate, (int) trim((string) $value), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC);
+            $cleanValue = cleanExcelCellValue($value);
+            if ($idx === 2 && is_numeric(trim((string) $cleanValue))) {
+                $sheet->setCellValueExplicit($cellCoordinate, (int) trim((string) $cleanValue), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC);
                 $sheet->getStyle($cellCoordinate)->getNumberFormat()->setFormatCode('0');
             } else {
-                $sheet->setCellValue($cellCoordinate, $value);
+                $sheet->setCellValue($cellCoordinate, $cleanValue);
             }
         }
         $row++;
@@ -206,6 +216,11 @@ function writeAllocationSheet($sheet, $allocation, $subAllocation, $allocations,
     }
     $sheet->getStyle('A1:' . getExcelColumnName(count($headers)) . ($totalRow))->getAlignment()->setWrapText(true);
     $sheet->getStyle('A1:' . getExcelColumnName(count($headers)) . ($totalRow))->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+    $sheet->getStyle('A4:' . getExcelColumnName(count($headers)) . $totalRow)->getFont()->setSize(10);
+    $sheet->getStyle('A4:' . getExcelColumnName(count($headers)) . $totalRow)->getFont()->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK));
+    $sheet->getStyle('A4:A' . $totalRow)->getFont()->setSize(9);
+    $sheet->getStyle('A4:A' . $totalRow)->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_TOP);
+    $sheet->getStyle('D4:' . getExcelColumnName(count($headers)) . $totalRow)->getNumberFormat()->setFormatCode('#,##0.00');
 }
 
 function buildAllocationData($allocations, $allocation, $subAllocation)
@@ -369,6 +384,25 @@ function buildAllocationData($allocations, $allocation, $subAllocation)
 
     $totals['Total'] = number_format($total, 2, '.', '');
     return array('rows' => $rows, 'totals' => $totals);
+}
+
+function cleanExcelCellValue($value)
+{
+    if (is_array($value)) {
+        $value = implode("\n", array_filter(array_map(function ($item) {
+            return trim((string) $item);
+        }, $value), function ($item) {
+            return $item !== '';
+        }));
+    } else {
+        $value = trim((string) $value);
+    }
+
+    $value = preg_replace('/\R\s*\R+/', "\n", $value);
+    $value = preg_replace('/[\t\x0B\f]/', ' ', $value);
+    $value = preg_replace('/\s+/', ' ', $value);
+
+    return $value;
 }
 
 function getExcelColumnName($index)

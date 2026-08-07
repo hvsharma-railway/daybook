@@ -327,7 +327,7 @@
                     </table>
                 </div>
                 <div class='text-center'>
-                    <button id="<?php echo substr($allocation, 0, 2) . '-' . substr($allocation, 2, 4); ?>" class="btn">PRINT</button>
+                    <button id="<?php echo substr($allocation, 0, 2) . '-' . substr($allocation, 2, 4); ?>" class="btn print-btn">PRINT</button>
                     <button type="button" class="btn btn-default export-btn" data-allocation="<?php echo substr($allocation, 0, 2) . '-' . substr($allocation, 2, 4); ?>">EXPORT EXCEL</button>
                 </div></br />
             <?php
@@ -381,7 +381,7 @@
                 </div>
                 <div class="btn-toolbar" style="margin: 15px 0;">
                     <div class="btn-group" role="group" aria-label="Print Actions">
-                        <button id="Summary" class="btn btn-primary" type="button" title="Print summary table only">PRINT SUMMARY</button>
+                        <button id="Summary" class="btn btn-primary summary-print-btn" type="button" title="Print summary table only">PRINT SUMMARY</button>
                         <button id="PrintAll" class="btn btn-success" type="button" title="Print all allocation tables and summary in one document">PRINT ALL</button>
                         <button id="ExportAll" class="btn btn-info export-btn" type="button" data-export-url="exportDayBookExcel.php?mode=all">EXPORT ALL EXCEL</button>
                     </div>
@@ -590,10 +590,10 @@
             });
 
             /**
-             * Print Individual Table Button (all .btn except #PrintAll and export buttons)
+             * Print Individual Table Button (allocation print buttons only)
              * Prints a single allocation table for the clicked button
              */
-            $(".btn").not("#PrintAll").not(".export-btn").click(function() {
+            $(".print-btn").click(function() {
                 var buttonId = this.id;
                 var tableId = "#table" + buttonId;
 
@@ -617,6 +617,31 @@
                 printDocument(tableContent, 'Allocation Day Book');
 
                 // Restore UI state
+                setTimeout(function() {
+                    $(".last").show();
+                    for (const [key, value] of customValues.entries()) {
+                        var displayValue = $("#" + key).text();
+                        $("#" + key).html(value);
+                        $("#" + key + "Value").val(displayValue);
+                    }
+                }, 600);
+            });
+
+            /**
+             * Print Summary Button: Print only the summary table
+             */
+            $(".summary-print-btn").click(function() {
+                $(".last").hide();
+
+                var customValues = new Map();
+                $(".customAllocation").each(function() {
+                    customValues.set(this.id, $("#" + this.id).html());
+                    $("#" + this.id).html($("#" + this.id + "Value").val());
+                });
+
+                var summaryContent = $('#tableSummary').html();
+                printDocument(summaryContent, 'Day Book Summary');
+
                 setTimeout(function() {
                     $(".last").show();
                     for (const [key, value] of customValues.entries()) {

@@ -47,9 +47,6 @@ if (isset($_POST['exported_co6numbers'])) {
     </div>
     <div class="text-center my-4">
         <button type="button" class="btn btn-success download-all-btn" onclick="downloadAllFiles()">Download All</button>
-        <form method="post" action="mergeAndDownload.php" class="d-inline">
-            <button type="submit" class="btn btn-warning ms-2">Merge & Download PDF</button>
-        </form>
     </div>
 </div>
 <script>
