@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}Error{% endblock %}
+{% block content %}
+<div class="alert {{ 'alert-warning' if status in (404, 409) else 'alert-danger' }} mt-4">{{ message }}</div>
+<a href="javascript:history.back()">&larr; Back</a>
+{% endblock %}

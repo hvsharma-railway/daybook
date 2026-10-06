@@ -1,0 +1,7 @@
+<form method="get" class="d-flex gap-2 align-items-center">
+  {% for k, v in request.query_params.items() if k not in ('fy', 'format') %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+  <select name="fy" class="form-select form-select-sm" onchange="this.form.submit()">
+    {% if fy_all %}<option value="all" {{ 'selected' if fy is none }}>All months</option>{% endif %}
+    {% for y in fys %}<option value="{{ y }}" {{ 'selected' if y == fy }}>{{ fy_label(y) }}</option>{% endfor %}
+  </select>
+</form>

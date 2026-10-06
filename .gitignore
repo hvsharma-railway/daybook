@@ -3,3 +3,6 @@ JULY-2022/*
 BOOK.xlsx
 daybook-generated-files
 daybook-generated-files/*
+daybook-runs
+monthly/config.local.php
+.env

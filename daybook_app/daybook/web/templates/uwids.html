@@ -1,0 +1,7 @@
+{% extends "report.html" %}
+{% block above %}
+<form method="get" class="d-flex gap-2 mb-3" style="max-width: 480px;">
+  <input class="form-control" name="q" value="{{ q }}" placeholder="UWID (full or part), e.g. 150416243002" autofocus>
+  <button class="btn btn-primary">Search</button>
+</form>
+{% endblock %}

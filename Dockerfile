@@ -1,7 +1,9 @@
 FROM php:7.4-apache
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Install system dependencies from the archived Bullseye repositories.
+RUN sed -i 's|deb.debian.org|archive.debian.org|g' /etc/apt/sources.list \
+    && apt-get -o Acquire::Check-Valid-Until=false update \
+    && apt-get install -y \
     git \
     curl \
     libpng-dev \

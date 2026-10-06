@@ -1,59 +1,9 @@
 <?php
 require 'vendor/autoload.php'; // Make sure PhpSpreadsheet is installed via Composer
-
-use PhpOffice\PhpSpreadsheet\IOFactory;
+require_once __DIR__ . '/jvSeparation.php';
 
 $targetDir = "daybook-generated-files";
-$jvNumbers = [];
-$nonJvNumbers = [];
-
-for ($i = 1; $i <= 8; $i++) {
-    $filePath = $targetDir . "/$i.xlsx";
-    if (!file_exists($filePath)) continue;
-
-    $spreadsheet = IOFactory::load($filePath);
-    $sheet = $spreadsheet->getActiveSheet();
-
-    foreach ($sheet->getRowIterator() as $row) {
-        $cellIterator = $row->getCellIterator();
-        $cellIterator->setIterateOnlyExistingCells(false);
-
-        $cells = [];
-        foreach ($cellIterator as $cell) {
-            $cells[] = trim((string)$cell->getValue());
-        }
-        // Check header row
-        if (strtoupper($cells[0]) == "SECTION" && strtoupper($cells[1]) == "CO6 NUMBER") {
-            continue;
-        }
-        // JV and non-JV separation by pattern
-        if (preg_match('/^\d{2}-JV$/', $cells[0]) && !empty($cells[1])) {
-            $jvNumbers[] = $cells[1];
-        } elseif (!empty($cells[1])) {
-            $nonJvNumbers[] = $cells[1];
-        }
-    }
-}
-
-// Clean JV numbers: keep only digits
-$jvNumbers = array_map(function($num) {
-    return preg_replace('/\D/', '', $num);
-}, $jvNumbers);
-$jvNumbers = array_filter($jvNumbers);
-$jvNumbers = array_unique($jvNumbers);
-$jvNumbers = array_values($jvNumbers);
-
-// Clean non-JV numbers: remove entries containing P1-, P2-, etc.
-$nonJvNumbers = array_filter($nonJvNumbers, function($num) {
-    return !preg_match('/P\d+-/', $num);
-});
-// Clean non-JV numbers: keep only digits
-$nonJvNumbers = array_map(function($num) {
-    return preg_replace('/\D/', '', $num);
-}, $nonJvNumbers);
-$nonJvNumbers = array_filter($nonJvNumbers);
-$nonJvNumbers = array_unique($nonJvNumbers);
-$nonJvNumbers = array_values($nonJvNumbers);
+list($jvNumbers, $nonJvNumbers) = separateJVAndNonJVNumbers($targetDir);
 
 // Output JV Numbers
 echo "<h2>CO6 NUMBER values for SECTIONS matching '*-JV'</h2>";

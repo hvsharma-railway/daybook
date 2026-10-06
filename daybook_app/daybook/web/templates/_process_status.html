@@ -1,0 +1,182 @@
+{% set running = job and job.status in ('queued', 'running') %}
+{% set ready = allocations|selectattr('status', 'equalto', 'downloaded')|list|length %}
+{% macro badge(status) -%}
+<span class="badge status {{ {'pending': 'text-bg-light border', 'downloading': 'text-bg-info', 'downloaded': 'text-bg-success', 'failed': 'text-bg-danger'}.get(status, 'text-bg-secondary') }}">{{ {'pending': 'Pending', 'downloading': 'Downloading…', 'downloaded': 'Downloaded', 'failed': 'Failed'}.get(status, status) }}</span>
+{%- endmacro %}
+<div id="status" {% if running %}hx-get="/process/{{ ym }}/status" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+
+{% if message %}<div class="alert alert-success py-2">{{ message }}</div>{% endif %}
+{% if error %}<div class="alert alert-danger py-2">{{ error }}</div>{% endif %}
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-5">
+    <div class="card h-100"><div class="card-body">
+      <div class="d-flex justify-content-between">
+        <div class="fw-semibold">{{ ym|ym_label }}</div>
+        <div class="small-muted">AIMS period {{ period.start_display }} to {{ period.end_display }}</div>
+      </div>
+      <div class="mt-3">
+        {% if month and month.completed_at %}
+          <span class="badge text-bg-success fs-6">Complete</span>
+          <a class="btn btn-success btn-sm ms-2" href="/months/{{ ym }}/zip">Download all outputs (.zip)</a>
+          <a class="btn btn-outline-primary btn-sm" href="/months/{{ ym }}">View month</a>
+        {% elif running %}
+          <span class="spinner-border spinner-border-sm text-primary"></span>
+          <span class="fw-semibold">Working: {{ {'reports': 'downloading Suspense Head reports', 'separate': 'separating JVs', 'documents': 'downloading JV reports and allocation sheets', 'outputs': 'preparing outputs'}.get(job.stage, job.stage or 'queued') }}</span>
+          <div class="small-muted">You can leave this page; the work continues on the server.</div>
+        {% else %}
+          <button class="btn btn-primary" hx-post="/process/{{ ym }}/start" hx-target="#status" hx-swap="outerHTML" {{ 'disabled' if not aims.set and ready < allocations|length }}>
+            {{ 'Start monthly process' if not month or (ready == 0 and not job) else 'Continue / retry failed' }}
+          </button>
+          {% if job and job.message %}<div class="mt-2 {{ 'text-danger' if job.status in ('failed', 'paused') else 'text-success' }}">{{ job.message }}</div>{% endif %}
+          {% if month and month.last_error and month.completed_at %}<div class="small text-warning mt-1">{{ month.last_error }}</div>{% endif %}
+        {% endif %}
+      </div>
+      {% if month and not running %}
+      <div class="mt-3 pt-2 border-top">
+        <div class="small fw-semibold mb-1">Restart month</div>
+        <div class="d-flex flex-wrap gap-2">
+          <button class="btn btn-sm btn-outline-primary" hx-post="/process/{{ ym }}/restart-from-downloads" hx-target="#status" hx-swap="outerHTML"
+                  hx-confirm="Restart {{ ym|ym_label }} from the files already downloaded? The reports are read again and separation, outputs and balances are redone. Nothing already downloaded is fetched from AIMS again."
+                  {{ 'disabled' if ready == 0 and not allocations|selectattr('original_file_id')|list }}>From downloaded files</button>
+          <button class="btn btn-sm btn-outline-danger" hx-post="/process/{{ ym }}/reset" hx-target="#status" hx-swap="outerHTML"
+                  hx-confirm="Restart {{ ym|ym_label }} and download everything from AIMS again? Its downloaded reports, documents and balances are removed (opening balances you entered are kept).">Download again from AIMS</button>
+        </div>
+      </div>
+      {% endif %}
+    </div></div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card h-100"><div class="card-body">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="fw-semibold">AIMS session</div>
+          {% if aims.set %}
+            <div class="small"><span class="badge text-bg-success">Set</span> cookies: {{ aims.names|join(', ') }} &middot; expires in {{ (aims.expires_in // 3600) }}h {{ (aims.expires_in % 3600) // 60 }}m</div>
+          {% else %}
+            <div class="small"><span class="badge text-bg-warning">Not set</span> needed to download from AIMS</div>
+          {% endif %}
+        </div>
+        {% if aims.set %}<form hx-post="/aims-session/clear" hx-target="#status" hx-swap="outerHTML"><input type="hidden" name="ym" value="{{ ym }}"><button class="btn btn-sm btn-outline-secondary">Clear</button></form>{% endif %}
+      </div>
+      <details class="mt-2" {{ 'open' if not aims.set }}>
+        <summary class="small">Set or replace the AIMS session</summary>
+        <ol class="small small-muted mt-2 mb-2 ps-3">
+          <li>Log in to AIMS in your browser and open any AIMS page.</li>
+          <li>Press F12 &rarr; Network, reload, click the first request.</li>
+          <li>Under Request Headers, copy the whole <code>Cookie</code> value and paste it here.</li>
+        </ol>
+        <form hx-post="/aims-session" hx-target="#status" hx-swap="outerHTML">
+          <input type="hidden" name="ym" value="{{ ym }}">
+          <textarea name="cookie" rows="2" class="form-control form-control-sm font-monospace" placeholder="WASJSESSIONID=...; aimsweb=...; TS01...=..." autocomplete="off" spellcheck="false"></textarea>
+          <button class="btn btn-primary btn-sm mt-2">Use this session</button>
+          <span class="small-muted ms-2">Kept on the server for a few hours only; never stored in the database or files.</span>
+        </form>
+      </details>
+    </div></div>
+  </div>
+</div>
+
+{# Step 1 #}
+<div class="card mb-3"><div class="card-body">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h2 class="h6 fw-semibold mb-0">1 &middot; Suspense Head reports</h2>
+    <span class="badge {{ 'text-bg-success' if ready == allocations|length else 'text-bg-secondary' }}">{{ ready }} / {{ allocations|length }}</span>
+  </div>
+  <table class="table table-sm align-middle mb-0">
+    <thead><tr><th style="width:90px">Allocation</th><th style="width:120px">Status</th><th>Details</th><th class="text-end" style="width:260px">Actions</th></tr></thead>
+    <tbody>
+    {% for a in allocations %}
+      <tr>
+        <td class="fw-semibold">{{ a.allocation }}</td>
+        <td>{{ badge(a.status) }}</td>
+        <td class="small">
+          {% if a.status == 'failed' %}<span class="text-danger"><b>Reason:</b> {{ a.message }}</span>
+          {% elif a.status == 'downloaded' %}
+            {{ 'No transactions this month' if a.heads == 0 else '%d sub-allocation heads, %d entries'|format(a.heads, a.entries) }}
+            <span class="small-muted">&middot; {{ 'from AIMS' if a.via == 'aims' else 'uploaded ' ~ a.source_name }} ({{ a.file_format }})</span>
+            {% if a.warnings %}<div class="text-warning">{{ a.warnings|join(' ') }}</div>{% endif %}
+          {% endif %}
+        </td>
+        <td class="text-end">
+          {% if month and not running %}
+            {% if a.status in ('failed', 'downloaded') %}
+            <form class="d-inline" hx-post="/process/{{ ym }}/retry" hx-target="#status" hx-swap="outerHTML">
+              <input type="hidden" name="kind" value="report"><input type="hidden" name="ref" value="{{ a.allocation }}">
+              <button class="btn btn-sm btn-outline-primary">{{ 'Retry' if a.status == 'failed' else 'Re-download' }}</button>
+            </form>
+            {% endif %}
+          {% endif %}
+          {% if not running %}
+          <form class="d-inline" hx-post="/process/{{ ym }}/upload/{{ a.allocation }}" hx-target="#status" hx-swap="outerHTML" hx-encoding="multipart/form-data" hx-trigger="change">
+            <label class="btn btn-sm btn-outline-secondary mb-0" title="Use a file you downloaded from AIMS yourself">Upload<input type="file" name="file" class="d-none" accept=".xls,.xlsx"></label>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+
+{# Step 2 + 3 #}
+<div class="card mb-3"><div class="card-body">
+  <h2 class="h6 fw-semibold mb-2">2 &middot; JV separation &nbsp;&middot;&nbsp; 3 &middot; JV reports and allocation sheets</h2>
+  {% if not month or not month.separated_at %}
+    <div class="small-muted">Runs once all {{ allocations|length }} Suspense Head reports are in ({{ ready }} / {{ allocations|length }}).</div>
+  {% else %}
+    <div class="row g-3">
+    {% for kind, items, title in (('jv', jvs, 'JV reports'), ('sheet', sheets, 'Allocation sheets')) %}
+      {% set c = counts[kind] %}
+      <div class="col-lg-6">
+        <div class="d-flex justify-content-between">
+          <div class="fw-semibold">{{ title }}</div>
+          <div class="small">{{ c.get('downloaded', 0) }} / {{ items|length }} downloaded{% if c.get('failed') %} &middot; <span class="text-danger">{{ c.failed }} failed</span>{% endif %}</div>
+        </div>
+        <div class="progress my-1" style="height:6px"><div class="progress-bar {{ 'bg-success' if c.get('downloaded', 0) == items|length }}" style="width: {{ (100 * c.get('downloaded', 0) / (items|length or 1))|round }}%"></div></div>
+        {% for i in items if i.status == 'failed' %}
+          <div class="small text-danger d-flex justify-content-between gap-2 border-bottom py-1">
+            <span><b>{{ i.number }}</b> &mdash; {{ i.message }}</span>
+            {% if not running %}<form hx-post="/process/{{ ym }}/retry" hx-target="#status" hx-swap="outerHTML"><input type="hidden" name="kind" value="{{ kind }}"><input type="hidden" name="ref" value="{{ i.number }}"><button class="btn btn-sm btn-outline-primary py-0">Retry</button></form>{% endif %}
+          </div>
+        {% endfor %}
+        <details class="small mt-1"><summary>All {{ items|length }} numbers</summary>
+          <div style="max-height: 220px; overflow:auto">{% for i in items %}<div>{{ i.position }}. {{ i.number }} &middot; {{ i.status }}{% if i.pages %} &middot; {{ i.pages }} page{{ 's' if i.pages != 1 }}{% endif %}{% if i.file_id %} &middot; <a href="/files/{{ i.file_id }}">open</a>{% endif %}</div>{% endfor %}</div>
+        </details>
+      </div>
+    {% endfor %}
+    </div>
+    {% if files %}
+    <div class="mt-3 d-flex flex-wrap gap-2">
+      {% if files.jv_reports_pdf %}<a class="btn btn-sm btn-outline-danger" href="/files/{{ files.jv_reports_pdf.id }}">JV reports (PDF, landscape 60%)</a>{% endif %}
+      {% if files.jv_reports_txt %}<a class="btn btn-sm btn-outline-secondary" href="/files/{{ files.jv_reports_txt.id }}">JV reports (merged text)</a>{% endif %}
+      {% if files.allocation_sheets_pdf %}<a class="btn btn-sm btn-outline-danger" href="/files/{{ files.allocation_sheets_pdf.id }}">Allocation sheets (PDF, 2 per page)</a>{% endif %}
+    </div>
+    {% endif %}
+  {% endif %}
+</div></div>
+
+{# Opening balances #}
+{% if openings %}
+<div class="card mb-3"><div class="card-body">
+  <h2 class="h6 fw-semibold">Opening balances (Last Month) for {{ ym|ym_label }}</h2>
+  <div class="small-muted mb-2">There is no earlier month in Daybook to carry Last Month from. Enter each sub-allocation's Last Month (progressive total of this financial year up to the previous month) once; later months carry forward automatically. Running balance is optional - leave it blank to use the same figure.</div>
+  <form hx-post="/process/{{ ym }}/openings" hx-target="#status" hx-swap="outerHTML">
+    <table class="table table-sm align-middle" style="max-width: 760px">
+      <thead><tr><th>Sub-allocation</th><th class="money">Last Month (FY)</th><th class="money">Running opening (optional)</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for o in openings %}
+        <tr>
+          <td>{{ o.label }}</td>
+          <td><input name="last_{{ o.code }}" class="form-control form-control-sm text-end" value="{{ o.manual.last_month_fy if o.manual else '' }}" placeholder="0.00" inputmode="decimal"></td>
+          <td><input name="running_{{ o.code }}" class="form-control form-control-sm text-end" value="{{ o.manual.opening_running if o.manual and o.manual.running_confirmed else '' }}" inputmode="decimal"></td>
+          <td class="small">{{ 'entered' if o.balance.opening_source == 'manual' else ('carried' if o.balance.opening_source == 'carried' else 'not entered') }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <button class="btn btn-primary btn-sm">Save opening balances</button>
+  </form>
+</div></div>
+{% endif %}
+</div>

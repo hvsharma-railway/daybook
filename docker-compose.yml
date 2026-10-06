@@ -5,6 +5,7 @@ services:
       - "32768:80"
     volumes:
       - .:/var/www/html
+      - vendor_data:/var/www/html/vendor
     depends_on:
       - db
     environment:
@@ -36,5 +37,37 @@ services:
     depends_on:
       - db
 
+  # New Daybook application (Python) - see daybook_app/README.md
+  app:
+    build: ./daybook_app
+    ports:
+      - "32771:8000"
+    volumes:
+      - ./daybook_app:/app
+    environment: &app_env
+      DATABASE_URL: mysql+pymysql://user:password@db:3306/daybook?charset=utf8mb4
+      REDIS_URL: redis://redis:6379/0
+      DAYBOOK_SECRET_KEY: ${DAYBOOK_SECRET_KEY:-dev-only-change-me}
+      AIMS_BASE_URL: ${AIMS_BASE_URL:-https://aims.indianrailways.gov.in}
+    command: sh -c "alembic upgrade head && uvicorn daybook.web.app:app --host 0.0.0.0 --port 8000 --reload"
+    depends_on:
+      - db
+      - redis
+
+  worker:
+    build: ./daybook_app
+    volumes:
+      - ./daybook_app:/app
+    environment: *app_env
+    command: rq worker --url redis://redis:6379/0 daybook
+    depends_on:
+      - db
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+
 volumes:
   db_data:
+  vendor_data:

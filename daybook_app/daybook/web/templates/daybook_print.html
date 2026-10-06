@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Daybook {{ ym }} Allocation {{ allocation }}</title>
+<style>
+  @page { size: A4 landscape; margin: 8mm; @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 7pt; } }
+  body { font-family: "DejaVu Sans", Arial, sans-serif; margin: 0; }
+  .print-part { page-break-after: always; }
+  .dbt-title { font-size: 11pt; margin: 0 0 5px; }
+  .dbt { border-collapse: collapse; }
+  .dbt-print { table-layout: fixed; }
+  .dbt th, .dbt td { border: 1px solid #000; padding: 1px 3px; vertical-align: top; }
+  .dbt th { background: #eee; } .num { text-align: right; white-space: nowrap; }
+  .wrap { overflow-wrap: anywhere; } .nowrap { white-space: nowrap; }
+  thead { display: table-header-group; } tr { page-break-inside: avoid; }
+  .daybook-summary { font-size: 10pt; } .daybook-summary .dbt td, .daybook-summary .dbt th { padding: 4px 8px; }
+  .signatures { display: flex; justify-content: space-between; width: 70%; margin-top: 70px; }
+</style></head>
+<body>
+{% include "_daybook_tables.html" %}
+</body></html>

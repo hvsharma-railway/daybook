@@ -1,0 +1,5 @@
+{% set q = request.url.query %}
+<div class="btn-group btn-group-sm">
+  <a class="btn btn-outline-success" href="?{{ q ~ '&' if q }}format=xlsx">Export Excel</a>
+  <a class="btn btn-outline-danger" href="?{{ q ~ '&' if q }}format=pdf">Export PDF</a>
+</div>

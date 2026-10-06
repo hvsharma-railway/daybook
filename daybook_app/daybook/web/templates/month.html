@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}{{ ym|ym_label }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ ym|ym_label }}</h1>
+    <span class="badge {{ 'text-bg-success' if status == 'complete' else 'text-bg-warning' }}">{{ status }}</span>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    {% if month.completed_at %}<a class="btn btn-sm btn-success" href="/months/{{ ym }}/zip">Download all outputs (.zip)</a>{% endif %}
+    {% if PROCESS_RUN in perms %}<a class="btn btn-sm btn-outline-primary" href="/process/{{ ym }}">Process page</a>{% endif %}
+    {% include "_exports.html" %}
+  </div>
+</div>
+<div class="row g-3">
+  <div class="col-lg-7">
+    {% set t = table %}{% include "_table.html" %}
+  </div>
+  <div class="col-lg-5">
+    <div class="card mb-3"><div class="card-body">
+      <h2 class="h6 fw-semibold">Daybook by allocation</h2>
+      <table class="table table-sm mb-0">
+        {% for a in allocations %}
+        <tr>
+          <td class="fw-semibold">{{ a.allocation }}</td>
+          <td class="small">{{ a.entries if a.entries is not none else '-' }} entries</td>
+          <td class="text-end">
+            {% if a.status == 'downloaded' %}
+            <a href="/months/{{ ym }}/allocations/{{ a.allocation }}">View</a> &middot;
+            <a href="/months/{{ ym }}/allocations/{{ a.allocation }}?format=xlsx">Excel</a> &middot;
+            <a href="/months/{{ ym }}/allocations/{{ a.allocation }}?format=pdf">PDF</a>
+            {% else %}<span class="small-muted">{{ a.status }}</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div></div>
+    <div class="card"><div class="card-body">
+      <h2 class="h6 fw-semibold">Documents</h2>
+      {% set jv_items = items|selectattr('kind', 'equalto', 'jv')|list %}
+      {% set sheet_items = items|selectattr('kind', 'equalto', 'sheet')|list %}
+      <div class="small mb-2">{{ jv_items|length }} JV reports &middot; {{ sheet_items|length }} allocation sheets</div>
+      <div class="d-flex flex-wrap gap-2">
+        {% if files.jv_reports_pdf %}<a class="btn btn-sm btn-outline-danger" href="/files/{{ files.jv_reports_pdf.id }}">JV reports PDF</a>{% endif %}
+        {% if files.jv_reports_txt %}<a class="btn btn-sm btn-outline-secondary" href="/files/{{ files.jv_reports_txt.id }}">JV reports text</a>{% endif %}
+        {% if files.allocation_sheets_pdf %}<a class="btn btn-sm btn-outline-danger" href="/files/{{ files.allocation_sheets_pdf.id }}">Allocation sheets PDF (2 per page)</a>{% endif %}
+      </div>
+      {% if not files %}<div class="small-muted">Not ready yet.</div>{% endif %}
+    </div></div>
+  </div>
+</div>
+{% endblock %}

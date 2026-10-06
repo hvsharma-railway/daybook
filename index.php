@@ -13,6 +13,20 @@
 <body class="bg-light">
   <div class="container py-5">
     <h1 class="text-center mb-5 fw-bold">Day Book Portal</h1>
+    <div class="row justify-content-center mb-4">
+      <div class="col-lg-8 col-md-12">
+        <div class="card shadow-sm border-primary">
+          <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div>
+              <h2 class="h5 fw-bold mb-1">Monthly Daybook Process</h2>
+              <p class="mb-0 text-secondary small">Select the month: all 9 Suspense Head files are downloaded from AIMS, JVs separated and every Daybook prepared in one go.</p>
+            </div>
+            <a href="monthly.php" class="btn btn-primary btn-lg">Start</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="text-center text-secondary small mb-3">Manual mode &mdash; one file at a time</p>
     <div class="row g-4 justify-content-center">
       <div class="col-lg-4 col-md-12">
         <div class="card shadow-sm h-100">

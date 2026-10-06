@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Users{% endblock %}
+{% macro user_form(u) %}
+<form method="post" action="/admin/users" class="row g-2 align-items-end">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  {% if u %}<input type="hidden" name="user_id" value="{{ u.id }}">{% endif %}
+  <div class="col-md-2"><label class="form-label small">Username</label><input name="username" class="form-control form-control-sm" value="{{ u.username if u }}" {{ 'readonly' if u else 'required' }}></div>
+  <div class="col-md-2"><label class="form-label small">Full name</label><input name="full_name" class="form-control form-control-sm" value="{{ u.full_name if u }}"></div>
+  <div class="col-md-2"><label class="form-label small">{{ 'New password (optional)' if u else 'Password' }}</label><input type="password" name="password" class="form-control form-control-sm" autocomplete="new-password" {{ '' if u else 'required minlength=8' }}></div>
+  <div class="col-md-2"><label class="form-label small">Roles</label>
+    {% for r in roles %}<div class="form-check"><input class="form-check-input" type="checkbox" name="roles" value="{{ r.id }}" id="r{{ r.id }}-{{ u.id if u else 'new' }}" {{ 'checked' if u and r in u.roles }}><label class="form-check-label small" for="r{{ r.id }}-{{ u.id if u else 'new' }}" title="{{ r.description }}">{{ r.name }}</label></div>{% endfor %}
+  </div>
+  <div class="col-md-2"><label class="form-label small">Limit to UWIDs / allocations (UWID Viewer)</label>
+    <input name="scope_uwids" class="form-control form-control-sm mb-1" placeholder="UWIDs, comma separated" value="{{ u.scopes|selectattr('scope_type', 'equalto', 'uwid')|map(attribute='value')|join(', ') if u }}">
+    <input name="scope_allocations" class="form-control form-control-sm" placeholder="Allocations, e.g. 20, 21" value="{{ u.scopes|selectattr('scope_type', 'equalto', 'allocation')|map(attribute='value')|join(', ') if u }}"></div>
+  <div class="col-md-1"><div class="form-check"><input class="form-check-input" type="checkbox" name="is_active" {{ 'checked' if not u or u.is_active }} id="act{{ u.id if u else 'new' }}"><label class="form-check-label small" for="act{{ u.id if u else 'new' }}">Active</label></div></div>
+  <div class="col-md-1"><button class="btn btn-sm btn-primary w-100">{{ 'Save' if u else 'Create' }}</button></div>
+</form>
+{% endmacro %}
+{% block content %}
+<div class="page-head"><h1>Users and roles</h1></div>
+<div class="card mb-3"><div class="card-body">
+  <h2 class="h6 fw-semibold">Roles</h2>
+  <ul class="small mb-0">{% for r in roles %}<li><b>{{ r.name }}</b> &mdash; {{ r.description }} <span class="small-muted">({{ r.permissions|map(attribute='name')|join(', ') }})</span></li>{% endfor %}</ul>
+</div></div>
+<div class="card mb-3"><div class="card-body"><h2 class="h6 fw-semibold">New user</h2>{{ user_form(none) }}</div></div>
+<div class="card mb-3"><div class="card-body">
+  <h2 class="h6 fw-semibold">Existing users</h2>
+  {% for u in users %}<div class="border-bottom py-2">{{ user_form(u) }}<div class="small-muted">Last login: {{ u.last_login_at or 'never' }}</div></div>{% endfor %}
+</div></div>
+<div class="card"><div class="card-body">
+  <h2 class="h6 fw-semibold">Recent activity</h2>
+  <table class="table table-sm small mb-0">
+    {% for e in events %}<tr><td class="text-nowrap">{{ e.created_at }}</td><td>{{ e.ym or '' }}</td><td>{{ e.event }}</td><td>{{ e.reference or '' }}</td><td>{{ e.message or '' }}</td></tr>{% endfor %}
+  </table>
+</div></div>
+{% endblock %}

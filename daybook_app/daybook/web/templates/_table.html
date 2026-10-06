@@ -1,0 +1,20 @@
+{# Renders a reports.ReportTable passed as `t` #}
+{% macro cell(c, v) -%}{{ v|money if c.money else (v if v is not none else '') }}{%- endmacro %}
+<div class="mb-4">
+  <h2 class="h6 fw-semibold mb-2">{{ t.title }}</h2>
+  <div class="table-responsive" style="max-height: 75vh;">
+  <table class="table table-sm table-bordered table-hover table-report mb-1">
+    <thead><tr>{% for c in t.columns %}<th class="{{ 'money' if c.money }}">{{ c.label }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for row in t.rows %}{% set ri = loop.index0 %}
+      <tr>{% for c in t.columns %}{% set v = row[loop.index0] %}{% set link = t.links.get((ri, loop.index0)) %}
+        <td class="{{ 'money' if c.money }}{{ ' neg' if c.money and v|negative }}">{% if link %}<a href="{{ link }}">{{ cell(c, v) }}</a>{% else %}{{ cell(c, v) }}{% endif %}</td>{% endfor %}</tr>
+    {% else %}
+      <tr><td colspan="{{ t.columns|length }}" class="text-center small-muted py-3">No data yet.</td></tr>
+    {% endfor %}
+    </tbody>
+    {% if t.total %}<tfoot><tr>{% for c in t.columns %}{% set v = t.total[loop.index0] %}<td class="{{ 'money' if c.money }}{{ ' neg' if c.money and v|negative }}">{{ cell(c, v) }}</td>{% endfor %}</tr></tfoot>{% endif %}
+  </table>
+  </div>
+  {% if t.note %}<div class="small-muted">{{ t.note }}</div>{% endif %}
+</div>

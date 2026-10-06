@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ title }}</h1>{% if subtitle %}<div class="small-muted">{{ subtitle }}</div>{% endif %}</div>
+  <div class="d-flex gap-2">{% if fy_picker %}{% include "_fy_picker.html" %}{% endif %}{% include "_exports.html" %}</div>
+</div>
+{% block above %}{% endblock %}
+{% for t in tables %}{% include "_table.html" %}{% endfor %}
+{% endblock %}

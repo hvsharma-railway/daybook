@@ -1,0 +1,72 @@
+{# The Daybook as view.php lays it out: one table per sub-allocation, then the summary. Figures are printed exactly as view.php prints them.
+   On screen: one full table per sub-allocation. In print / PDF (`layouts`, see outputs/print_layout.py): each table sized to the page,
+   with head columns split across pages when they cannot fit. `print_only` skips the screen tables (PDF). #}
+{% macro row_cells(r, heads, with_total) -%}
+  {%- set label = r.label -%}
+  <td>{{ label[0] }}<br>{{ label[1] }}</td>
+  <td class="wrap">{{ r.description }}</td>
+  <td class="nowrap">{{ r.uwid_text }}</td>
+  {% for h in heads %}{% set shown = r.cell_display(h) %}
+    <td class="num">{% if shown is none %}---{% else %}{% for v in shown %}{{ v }}{% if not loop.last %}<br>{% endif %}{% endfor %}{% endif %}</td>
+  {% endfor %}
+  {% if with_total %}<td class="num">{{ r.total_display }}</td>{% endif %}
+{%- endmacro %}
+{% macro header(heads, with_total) -%}
+  <tr><th>Sec. - CO6 / CO7</th><th>BILL DESC / PARTY NAME</th><th>UWID</th>
+  {% for h in heads %}<th class="num">{{ h|head_label }}</th>{% endfor %}{% if with_total %}<th class="num">Total</th>{% endif %}</tr>
+{%- endmacro %}
+{% macro total_row(t, heads, with_total) -%}
+  <tr class="dbt-total"><td colspan="3"><b>TOTAL</b></td>{% for h in heads %}<td class="num"><b>{{ t.head_total_display(h) }}</b></td>{% endfor %}{% if with_total %}<td class="num"><b>{{ t.total_display }}</b></td>{% endif %}</tr>
+{%- endmacro %}
+
+{% if not print_only %}
+<div class="screen-tables">
+{% for t in daybook.tables %}
+<div class="daybook-table">
+  <h3 class="dbt-title"><u>{{ daybook.table_title(t) }}</u></h3>
+  <table class="dbt">
+    <thead>{{ header(t.heads, true) }}</thead>
+    <tbody>
+    {% for r in t.rows %}<tr>{{ row_cells(r, t.heads, true) }}</tr>{% endfor %}
+    {{ total_row(t, t.heads, true) }}
+    </tbody>
+  </table>
+</div>
+{% endfor %}
+</div>
+{% endif %}
+
+{% if layouts %}
+<div class="print-tables">
+{% for L in layouts %}{% set t = L.table %}
+  {% for p in L.parts %}
+  <div class="print-part" style="font-size: {{ L.font_pt }}pt;">
+    <h3 class="dbt-title"><u>{{ daybook.table_title(t) }}{{ p.suffix }}</u></h3>
+    <table class="dbt dbt-print" style="width: {{ p.table_width }}mm;">
+      <colgroup>{% for w in p.widths %}<col style="width: {{ '%.1f'|format(w) }}mm;">{% endfor %}</colgroup>
+      <thead>{{ header(p.heads, p.with_total) }}</thead>
+      <tbody>
+      {% for r in t.rows %}<tr>{{ row_cells(r, p.heads, p.with_total) }}</tr>{% endfor %}
+      {{ total_row(t, p.heads, p.with_total) }}
+      </tbody>
+    </table>
+  </div>
+  {% endfor %}
+{% endfor %}
+</div>
+{% endif %}
+
+<div class="daybook-summary">
+  <h3 class="dbt-title">Day Book Summary For Allocation Code: {{ allocation }}</h3>
+  <div class="dbt-period">{{ ym|ym_label }}</div>
+  <table class="dbt" style="width:auto; min-width: 55%;">
+    <thead><tr><th>Sub-Allocations</th><th class="num">Last Month</th><th class="num">For The Month</th><th class="num">To The Month</th></tr></thead>
+    <tbody>
+    {% for row in summary.rows %}
+      <tr><td>{{ row[0] }}</td><td class="num">{{ row[1]|money }}</td><td class="num">{{ row[2]|money }}</td><td class="num">{{ row[3]|money }}</td></tr>
+    {% endfor %}
+      <tr class="dbt-total"><td><b>TOTAL</b></td><td class="num"><b>{{ summary.total[1]|money }}</b></td><td class="num"><b>{{ summary.total[2]|money }}</b></td><td class="num"><b>{{ summary.total[3]|money }}</b></td></tr>
+    </tbody>
+  </table>
+  <div class="signatures"><span>AC / SE (IT)</span><span>SSO (Books)</span><span>ADFM / SrDFM RJT</span></div>
+</div>
