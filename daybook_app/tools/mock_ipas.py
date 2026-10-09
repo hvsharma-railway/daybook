@@ -1,9 +1,9 @@
-"""Stand-in for AIMS, for trying the monthly process without a real AIMS session.
+"""Stand-in for IPAS, for trying the monthly process without a real IPAS session.
 
-  docker compose run -d --name mockaims --no-deps app uvicorn tools.mock_aims:app --host 0.0.0.0 --port 8099
-  AIMS_BASE_URL=http://mockaims:8099 docker compose up -d app worker
+  docker compose run -d --name mockipas --no-deps app uvicorn tools.mock_ipas:app --host 0.0.0.0 --port 8099
+  IPAS_BASE_URL=http://mockipas:8099 docker compose up -d app worker
 
-Same endpoints and the same odd responses as AIMS (text/plain + Content-Disposition).
+Same endpoints and the same odd responses as IPAS (text/plain + Content-Disposition).
 Accepts any cookie containing WASJSESSIONID=good; anything else gets a login page.
 MOCK_FAIL_ONCE=26,08180426001166 makes those allocations / numbers fail on their first request.
 August 2026 is served as the real .xls files; other months reuse August relabelled (.xlsx).
@@ -29,7 +29,7 @@ requests_log = []
 
 app = FastAPI()
 
-LOGIN = '<!DOCTYPE html><html><head><title>AIMS :: Login</title></head><body><form action="login">User Id</form></body></html>'
+LOGIN = '<!DOCTYPE html><html><head><title>IPAS :: Login</title></head><body><form action="login">User Id</form></body></html>'
 
 
 def _logged_in(request):

@@ -13,7 +13,7 @@
     <div class="card h-100"><div class="card-body">
       <div class="d-flex justify-content-between">
         <div class="fw-semibold">{{ ym|ym_label }}</div>
-        <div class="small-muted">AIMS period {{ period.start_display }} to {{ period.end_display }}</div>
+        <div class="small-muted">IPAS period {{ period.start_display }} to {{ period.end_display }}</div>
       </div>
       <div class="mt-3">
         {% if month and month.completed_at %}
@@ -22,10 +22,10 @@
           <a class="btn btn-outline-primary btn-sm" href="/months/{{ ym }}">View month</a>
         {% elif running %}
           <span class="spinner-border spinner-border-sm text-primary"></span>
-          <span class="fw-semibold">Working: {{ {'reports': 'downloading Suspense Head reports', 'separate': 'separating JVs', 'documents': 'downloading JV reports and allocation sheets', 'outputs': 'preparing outputs'}.get(job.stage, job.stage or 'queued') }}</span>
+          <span class="fw-semibold">Working: {{ {'reports': 'downloading Suspense Head reports', 'capital': 'downloading the Capital Schedule', 'separate': 'separating JVs', 'documents': 'downloading JV reports and allocation sheets', 'outputs': 'preparing outputs'}.get(job.stage, job.stage or 'queued') }}</span>
           <div class="small-muted">You can leave this page; the work continues on the server.</div>
         {% else %}
-          <button class="btn btn-primary" hx-post="/process/{{ ym }}/start" hx-target="#status" hx-swap="outerHTML" {{ 'disabled' if not aims.set and ready < allocations|length }}>
+          <button class="btn btn-primary" hx-post="/process/{{ ym }}/start" hx-target="#status" hx-swap="outerHTML" {{ 'disabled' if not ipas.set and ready < allocations|length }}>
             {{ 'Start monthly process' if not month or (ready == 0 and not job) else 'Continue / retry failed' }}
           </button>
           {% if job and job.message %}<div class="mt-2 {{ 'text-danger' if job.status in ('failed', 'paused') else 'text-success' }}">{{ job.message }}</div>{% endif %}
@@ -37,10 +37,10 @@
         <div class="small fw-semibold mb-1">Restart month</div>
         <div class="d-flex flex-wrap gap-2">
           <button class="btn btn-sm btn-outline-primary" hx-post="/process/{{ ym }}/restart-from-downloads" hx-target="#status" hx-swap="outerHTML"
-                  hx-confirm="Restart {{ ym|ym_label }} from the files already downloaded? The reports are read again and separation, outputs and balances are redone. Nothing already downloaded is fetched from AIMS again."
+                  hx-confirm="Restart {{ ym|ym_label }} from the files already downloaded? The reports are read again and separation, outputs and balances are redone. Nothing already downloaded is fetched from IPAS again."
                   {{ 'disabled' if ready == 0 and not allocations|selectattr('original_file_id')|list }}>From downloaded files</button>
           <button class="btn btn-sm btn-outline-danger" hx-post="/process/{{ ym }}/reset" hx-target="#status" hx-swap="outerHTML"
-                  hx-confirm="Restart {{ ym|ym_label }} and download everything from AIMS again? Its downloaded reports, documents and balances are removed (opening balances you entered are kept).">Download again from AIMS</button>
+                  hx-confirm="Restart {{ ym|ym_label }} and download everything from IPAS again? Its downloaded reports, documents and balances are removed (opening balances you entered are kept).">Download again from IPAS</button>
         </div>
       </div>
       {% endif %}
@@ -50,25 +50,25 @@
     <div class="card h-100"><div class="card-body">
       <div class="d-flex justify-content-between align-items-start">
         <div>
-          <div class="fw-semibold">AIMS session</div>
-          {% if aims.set %}
-            <div class="small"><span class="badge text-bg-success">Set</span> cookies: {{ aims.names|join(', ') }} &middot; expires in {{ (aims.expires_in // 3600) }}h {{ (aims.expires_in % 3600) // 60 }}m</div>
+          <div class="fw-semibold">IPAS session</div>
+          {% if ipas.set %}
+            <div class="small"><span class="badge text-bg-success">Set</span> cookies: {{ ipas.names|join(', ') }} &middot; expires in {{ (ipas.expires_in // 3600) }}h {{ (ipas.expires_in % 3600) // 60 }}m</div>
           {% else %}
-            <div class="small"><span class="badge text-bg-warning">Not set</span> needed to download from AIMS</div>
+            <div class="small"><span class="badge text-bg-warning">Not set</span> needed to download from IPAS</div>
           {% endif %}
         </div>
-        {% if aims.set %}<form hx-post="/aims-session/clear" hx-target="#status" hx-swap="outerHTML"><input type="hidden" name="ym" value="{{ ym }}"><button class="btn btn-sm btn-outline-secondary">Clear</button></form>{% endif %}
+        {% if ipas.set %}<form hx-post="/ipas-session/clear" hx-target="#status" hx-swap="outerHTML"><input type="hidden" name="ym" value="{{ ym }}"><button class="btn btn-sm btn-outline-secondary">Clear</button></form>{% endif %}
       </div>
-      <details class="mt-2" {{ 'open' if not aims.set }}>
-        <summary class="small">Set or replace the AIMS session</summary>
+      <details class="mt-2" {{ 'open' if not ipas.set }}>
+        <summary class="small">Set or replace the IPAS session</summary>
         <ol class="small small-muted mt-2 mb-2 ps-3">
-          <li>Log in to AIMS in your browser and open any AIMS page.</li>
+          <li>Log in to IPAS in your browser and open any IPAS page.</li>
           <li>Press F12 &rarr; Network, reload, click the first request.</li>
           <li>Under Request Headers, copy the whole <code>Cookie</code> value and paste it here.</li>
         </ol>
-        <form hx-post="/aims-session" hx-target="#status" hx-swap="outerHTML">
+        <form hx-post="/ipas-session" hx-target="#status" hx-swap="outerHTML">
           <input type="hidden" name="ym" value="{{ ym }}">
-          <textarea name="cookie" rows="2" class="form-control form-control-sm font-monospace" placeholder="WASJSESSIONID=...; aimsweb=...; TS01...=..." autocomplete="off" spellcheck="false"></textarea>
+          <textarea name="cookie" rows="2" class="form-control form-control-sm font-monospace" placeholder="WASJSESSIONID=...; ipasweb=...; TS01...=..." autocomplete="off" spellcheck="false"></textarea>
           <button class="btn btn-primary btn-sm mt-2">Use this session</button>
           <span class="small-muted ms-2">Kept on the server for a few hours only; never stored in the database or files.</span>
         </form>
@@ -94,7 +94,7 @@
           {% if a.status == 'failed' %}<span class="text-danger"><b>Reason:</b> {{ a.message }}</span>
           {% elif a.status == 'downloaded' %}
             {{ 'No transactions this month' if a.heads == 0 else '%d sub-allocation heads, %d entries'|format(a.heads, a.entries) }}
-            <span class="small-muted">&middot; {{ 'from AIMS' if a.via == 'aims' else 'uploaded ' ~ a.source_name }} ({{ a.file_format }})</span>
+            <span class="small-muted">&middot; {{ 'from IPAS' if a.via == 'ipas' else 'uploaded ' ~ a.source_name }} ({{ a.file_format }})</span>
             {% if a.warnings %}<div class="text-warning">{{ a.warnings|join(' ') }}</div>{% endif %}
           {% endif %}
         </td>
@@ -109,7 +109,7 @@
           {% endif %}
           {% if not running %}
           <form class="d-inline" hx-post="/process/{{ ym }}/upload/{{ a.allocation }}" hx-target="#status" hx-swap="outerHTML" hx-encoding="multipart/form-data" hx-trigger="change">
-            <label class="btn btn-sm btn-outline-secondary mb-0" title="Use a file you downloaded from AIMS yourself">Upload<input type="file" name="file" class="d-none" accept=".xls,.xlsx"></label>
+            <label class="btn btn-sm btn-outline-secondary mb-0" title="Use a file you downloaded from IPAS yourself">Upload<input type="file" name="file" class="d-none" accept=".xls,.xlsx"></label>
           </form>
           {% endif %}
         </td>
@@ -117,6 +117,39 @@
     {% endfor %}
     </tbody>
   </table>
+</div></div>
+
+{# Capital Schedule #}
+<div class="card mb-3"><div class="card-body">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h2 class="h6 fw-semibold mb-0">Capital Schedule</h2>
+    {% set cs = month.capital_status if month else 'pending' %}
+    {{ badge(cs) }}
+  </div>
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <div class="small">
+      {% if cs == 'failed' %}<span class="text-danger"><b>Reason:</b> {{ month.capital_message }}</span>
+      {% elif verification %}
+        Checked against the Daybook: <b>{{ verification.matched_cells }}</b> figures match{% if verification.differences %}, <b class="text-danger">{{ verification.differences|length }} differ</b>{% endif %}.
+        <a href="/months/{{ ym }}/capital-schedule">Open the Capital Schedule</a>
+      {% elif cs_error %}<span class="text-danger">{{ cs_error }}</span>
+      {% elif cs == 'downloaded' %}Downloaded; checked once all {{ allocations|length }} reports are in.
+      {% else %}<span class="small-muted">Downloaded from IPAS after the Suspense Head reports.</span>{% endif %}
+    </div>
+    {% if not running %}
+    <div class="text-nowrap">
+      {% if month and cs in ('failed', 'downloaded') %}
+      <form class="d-inline" hx-post="/process/{{ ym }}/retry" hx-target="#status" hx-swap="outerHTML">
+        <input type="hidden" name="kind" value="capital"><input type="hidden" name="ref" value="Capital Schedule">
+        <button class="btn btn-sm btn-outline-primary">{{ 'Retry' if cs == 'failed' else 'Re-download' }}</button>
+      </form>
+      {% endif %}
+      <form class="d-inline" hx-post="/process/{{ ym }}/capital-schedule" hx-target="#status" hx-swap="outerHTML" hx-encoding="multipart/form-data" hx-trigger="change">
+        <label class="btn btn-sm btn-outline-secondary mb-0" title="Use CapitalSchedule.html downloaded from IPAS yourself">Upload<input type="file" name="file" class="d-none" accept=".html,.htm"></label>
+      </form>
+    </div>
+    {% endif %}
+  </div>
 </div></div>
 
 {# Step 2 + 3 #}
@@ -148,6 +181,8 @@
     </div>
     {% if files %}
     <div class="mt-3 d-flex flex-wrap gap-2">
+      {% if files.daybook_book_pdf %}<a class="btn btn-sm btn-danger" href="/files/{{ files.daybook_book_pdf.id }}">{{ files.daybook_book_pdf.file_name }}</a>{% endif %}
+      {% if files.vouchers_pdf %}<a class="btn btn-sm btn-danger" href="/files/{{ files.vouchers_pdf.id }}">{{ files.vouchers_pdf.file_name }}</a>{% endif %}
       {% if files.jv_reports_pdf %}<a class="btn btn-sm btn-outline-danger" href="/files/{{ files.jv_reports_pdf.id }}">JV reports (PDF, landscape 60%)</a>{% endif %}
       {% if files.jv_reports_txt %}<a class="btn btn-sm btn-outline-secondary" href="/files/{{ files.jv_reports_txt.id }}">JV reports (merged text)</a>{% endif %}
       {% if files.allocation_sheets_pdf %}<a class="btn btn-sm btn-outline-danger" href="/files/{{ files.allocation_sheets_pdf.id }}">Allocation sheets (PDF, 2 per page)</a>{% endif %}

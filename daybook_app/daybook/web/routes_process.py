@@ -1,4 +1,4 @@
-"""Monthly process: AIMS session, start / continue, retries, manual uploads, restart, opening balances."""
+"""Monthly process: IPAS session, start / continue, retries, manual uploads, restart, opening balances."""
 from collections import Counter
 from decimal import Decimal, InvalidOperation
 
@@ -6,8 +6,8 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 
-from .. import aims_session, config, jobs, ledger, periods
-from ..aims import normalize_cookie
+from .. import capital_schedule, config, ipas_session, jobs, ledger, periods
+from ..ipas import normalize_cookie
 from ..ingest import get_or_create_month, ingest_report, mark_allocation
 from ..models import BalanceSubAllocation, Co6Item, Job, Month, MonthAllocation, OpeningBalance, StoredFile
 from ..storage import log_event
@@ -25,8 +25,9 @@ def _month(db, ym):
 
 def status_context(db, ym, user):
     month = _month(db, ym)
-    context = {"ym": ym, "month": month, "period": periods.period(ym), "aims": aims_session.info(user.id),
-               "allocations": [], "job": None, "jvs": [], "sheets": [], "counts": {}, "files": {}, "openings": []}
+    context = {"ym": ym, "month": month, "period": periods.period(ym), "ipas": ipas_session.info(user.id),
+               "allocations": [], "job": None, "jvs": [], "sheets": [], "counts": {}, "files": {}, "openings": [],
+               "verification": None, "cs_error": None}
     if month is None:
         context["allocations"] = [{"allocation": a, "status": "pending"} for a in config.ALLOCATIONS]
         return context
@@ -37,7 +38,10 @@ def status_context(db, ym, user):
     context["sheets"] = [i for i in items if i.kind == "sheet"]
     context["counts"] = {k: Counter(i.status for i in items if i.kind == k) for k in ("jv", "sheet")}
     context["files"] = {f.kind: f for f in db.scalars(select(StoredFile).where(
-        StoredFile.month_id == month.id, StoredFile.kind.in_(("jv_reports_txt", "jv_reports_pdf", "allocation_sheets_pdf"))))}
+        StoredFile.month_id == month.id, StoredFile.kind.in_(("jv_reports_txt", "jv_reports_pdf", "allocation_sheets_pdf",
+                                                             "vouchers_pdf", "daybook_book_pdf"))))}
+    if month.capital_file_id and month.reports_ready_at:
+        context["verification"], context["cs_error"] = capital_schedule.try_verify(db, month)
     balances = db.scalars(select(BalanceSubAllocation).where(BalanceSubAllocation.ym == ym).order_by(BalanceSubAllocation.code)).all()
     manual = {o.code: o for o in db.scalars(select(OpeningBalance).where(OpeningBalance.ym == ym))}
     if any(b.opening_source in ("missing", "manual") for b in balances):
@@ -81,6 +85,9 @@ def process_retry(request: Request, ym: str, kind: str = Form(...), ref: str = F
         raise HTTPException(404, "Nothing to retry.")
     if kind == "report":
         mark_allocation(db, month, ref, "pending")
+    elif kind == "capital":
+        month.capital_status, month.capital_message, month.capital_file_id = "pending", None, None
+        month.completed_at = None
     else:
         item = db.scalars(select(Co6Item).where(Co6Item.month_id == month.id, Co6Item.kind == kind, Co6Item.number == ref)).first()
         if item:
@@ -113,28 +120,28 @@ async def process_upload(request: Request, ym: str, allocation: str, file: Uploa
 
 @router.post("/process/{ym}/reset", dependencies=[Depends(check_csrf)])
 def process_reset(request: Request, ym: str, user=Depends(need_process), db=Depends(get_db)):
-    """Restart, fetching everything from AIMS again."""
+    """Restart, fetching everything from IPAS again."""
     try:
         jobs.reset_month(db, require_ym(ym), user.id)
     except RuntimeError as e:
         return _status(request, db, ym, user, error=str(e))
     db.commit()
-    if not aims_session.info(user.id)["set"]:
-        return _status(request, db, ym, user, message="%s restarted. Paste the AIMS session, then click Start." % periods.label(ym))
+    if not ipas_session.info(user.id)["set"]:
+        return _status(request, db, ym, user, message="%s restarted. Paste the IPAS session, then click Start." % periods.label(ym))
     jobs.start(db, ym, user.id)
-    return _status(request, db, ym, user, message="%s restarted: downloading everything from AIMS again." % periods.label(ym))
+    return _status(request, db, ym, user, message="%s restarted: downloading everything from IPAS again." % periods.label(ym))
 
 
 @router.post("/process/{ym}/restart-from-downloads", dependencies=[Depends(check_csrf)])
 def process_restart_from_downloads(request: Request, ym: str, user=Depends(need_process), db=Depends(get_db)):
-    """Restart from the reports already downloaded, without fetching them from AIMS again."""
+    """Restart from the reports already downloaded, without fetching them from IPAS again."""
     try:
         reused, missing = jobs.restart_from_downloads(db, require_ym(ym), user.id)
     except RuntimeError as e:
         return _status(request, db, ym, user, error=str(e))
     db.commit()
     jobs.start(db, ym, user.id)
-    note = "" if not missing else " Allocation %s still to be downloaded from AIMS." % ", ".join(missing)
+    note = "" if not missing else " Allocation %s still to be downloaded from IPAS." % ", ".join(missing)
     return _status(request, db, ym, user, message="%s restarted from %d downloaded reports; JV reports and allocation sheets already downloaded are reused.%s" % (periods.label(ym), reused, note))
 
 
@@ -169,20 +176,41 @@ async def process_openings(request: Request, ym: str, user=Depends(need_process)
     log_event(db, "openings_saved", ym, message="%d sub-allocations" % saved, user_id=user.id)
     ledger.recompute_from(db, ym)
     db.commit()
-    return _status(request, db, ym, user, message="Opening balances saved; balances recalculated.")
+    rebuilding = jobs.rebuild_outputs(db, ym, user.id)
+    return _status(request, db, ym, user, message="Opening balances saved; balances recalculated." +
+                   (" The month PDFs are being rebuilt." if rebuilding else ""))
 
 
-@router.post("/aims-session", dependencies=[Depends(check_csrf)])
-def save_aims_session(request: Request, cookie: str = Form(""), ym: str = Form(...), user=Depends(need_process), db=Depends(get_db)):
+@router.post("/process/{ym}/capital-schedule", dependencies=[Depends(check_csrf)])
+async def process_capital_upload(request: Request, ym: str, file: UploadFile = File(...), user=Depends(need_process), db=Depends(get_db)):
+    """Use a Capital Schedule (.html) downloaded from IPAS by hand."""
+    require_ym(ym)
+    month = get_or_create_month(db, ym)
+    if jobs.active_job(db, month.id):
+        return _status(request, db, ym, user, error="Wait for the running process to finish before uploading.")
     try:
-        aims_session.save(user.id, normalize_cookie(cookie), request.headers.get("user-agent", ""))
+        capital_schedule.accept(db, month, await file.read(), file.filename or "CapitalSchedule.html", "upload", user.id)
+    except capital_schedule.CapitalScheduleError as e:
+        month.capital_status, month.capital_message = "failed", str(e)
+        db.commit()
+        return _status(request, db, ym, user, error="Capital Schedule: %s" % e)
+    db.commit()
+    rebuilding = jobs.rebuild_outputs(db, ym, user.id)
+    return _status(request, db, ym, user, message="Capital Schedule loaded from %s.%s" % (
+        file.filename, " The month PDFs are being rebuilt." if rebuilding else " Click Continue to carry on."))
+
+
+@router.post("/ipas-session", dependencies=[Depends(check_csrf)])
+def save_ipas_session(request: Request, cookie: str = Form(""), ym: str = Form(...), user=Depends(need_process), db=Depends(get_db)):
+    try:
+        ipas_session.save(user.id, normalize_cookie(cookie), request.headers.get("user-agent", ""))
     except ValueError as e:
         return _status(request, db, require_ym(ym), user, error=str(e))
-    log_event(db, "aims_session_set", user_id=user.id)
-    return _status(request, db, require_ym(ym), user, message="AIMS session saved for %d hours." % (config.AIMS_COOKIE_TTL_SECONDS // 3600))
+    log_event(db, "ipas_session_set", user_id=user.id)
+    return _status(request, db, require_ym(ym), user, message="IPAS session saved for %d hours." % (config.IPAS_COOKIE_TTL_SECONDS // 3600))
 
 
-@router.post("/aims-session/clear", dependencies=[Depends(check_csrf)])
-def clear_aims_session(request: Request, ym: str = Form(...), user=Depends(need_process), db=Depends(get_db)):
-    aims_session.clear(user.id)
-    return _status(request, db, require_ym(ym), user, message="AIMS session cleared.")
+@router.post("/ipas-session/clear", dependencies=[Depends(check_csrf)])
+def clear_ipas_session(request: Request, ym: str = Form(...), user=Depends(need_process), db=Depends(get_db)):
+    ipas_session.clear(user.id)
+    return _status(request, db, require_ym(ym), user, message="IPAS session cleared.")

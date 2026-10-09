@@ -1,7 +1,7 @@
 """Database tables.
 
 Months hold the nine Suspense Head reports (raw files, converted rows and every entry),
-the JV / allocation-sheet documents fetched from AIMS, generated outputs and balances.
+the JV / allocation-sheet documents fetched from IPAS, generated outputs and balances.
 Users, roles and permissions provide role-based access.
 """
 from datetime import datetime
@@ -38,6 +38,10 @@ class Month(Base):
     documents_ready_at: Mapped[Optional[datetime]] = mapped_column(DateTime) # all JVs + sheets in
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)       # outputs + balances done
     last_error: Mapped[Optional[str]] = mapped_column(Text)
+    # IPAS Capital Schedule for the month (checked against the Daybook)
+    capital_status: Mapped[str] = mapped_column(String(20), server_default="pending", default="pending")  # pending|downloading|downloaded|failed
+    capital_message: Mapped[Optional[str]] = mapped_column(Text)
+    capital_file_id: Mapped[Optional[int]] = mapped_column(ForeignKey("files.id", ondelete="SET NULL", use_alter=True, name="fk_months_capital_file"))
     created_at: Mapped[datetime] = _now()
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
@@ -54,7 +58,7 @@ class MonthAllocation(Base):
     position: Mapped[int] = mapped_column(Integer)                    # 1..9, file order
     status: Mapped[str] = mapped_column(String(20), default="pending")  # pending|downloading|downloaded|failed
     message: Mapped[Optional[str]] = mapped_column(Text)
-    via: Mapped[Optional[str]] = mapped_column(String(10))            # aims|upload
+    via: Mapped[Optional[str]] = mapped_column(String(10))            # ipas|upload
     source_name: Mapped[Optional[str]] = mapped_column(String(255))
     file_format: Mapped[Optional[str]] = mapped_column(String(10))
     heads: Mapped[Optional[int]] = mapped_column(Integer)
@@ -119,7 +123,7 @@ class SuspenseEntry(Base):
 
 
 class Co6Item(Base):
-    """A JV report or allocation sheet to fetch from AIMS (from JV separation)."""
+    """A JV report or allocation sheet to fetch from IPAS (from JV separation)."""
     __tablename__ = "co6_items"
     __table_args__ = (UniqueConstraint("month_id", "kind", "number"),)
     id: Mapped[int] = mapped_column(primary_key=True)

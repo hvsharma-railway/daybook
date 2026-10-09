@@ -1,4 +1,4 @@
-"""Sample allocation-sheet PDFs and JV report texts for tests and the mock AIMS."""
+"""Sample allocation-sheet PDFs and JV report texts for tests and the mock IPAS."""
 import io
 import subprocess
 import tempfile

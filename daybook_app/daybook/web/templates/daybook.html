@@ -9,6 +9,9 @@
   .dbt-total td { background: #f1f3f5; }
   .daybook-table { margin-bottom: 28px; overflow-x: auto; }
   .signatures { display: flex; gap: 120px; margin-top: 60px; }
+  .cs-hit { background: #c8efd5 !important; } .cs-miss { background: #f9c9cf !important; }
+  .cs-mark { font-size: 12px; font-weight: normal; padding: 1px 6px; border-radius: 4px; }
+  .cs-mark.ok { color: #0a6b2e; background: #d9f2e2; } .cs-mark.bad { color: #a01624; background: #fbdde0; } .cs-mark.none { color: #666; }
   .print-tables { display: none; }
   /* Print: the page-sized tables from outputs/print_layout.py, A4 landscape, nothing cut */
   @page { size: A4 landscape; margin: 8mm; }
@@ -31,12 +34,12 @@
 {% block content %}
 <div class="page-head no-print">
   <div>
-    <h1>Daybook &middot; Allocation {{ allocation }} &middot; {{ ym|ym_label }}</h1>
+    <h1>Daybook &middot; Allocation {{ allocation }}{% if names.get(allocation) %} ({{ names[allocation] }}){% endif %} &middot; {{ ym|ym_label }}</h1>
     <div class="small-muted">{{ daybook.period_text }} &middot; {{ item.entries }} entries &middot; source: {{ item.source_name }} ({{ item.via }})</div>
   </div>
   <div class="d-flex gap-2 flex-wrap">
     <div class="btn-group btn-group-sm">
-      {% for a in allocations %}<a class="btn {{ 'btn-primary' if a == allocation else 'btn-outline-primary' }}" href="/months/{{ ym }}/allocations/{{ a }}">{{ a }}</a>{% endfor %}
+      {% for a in allocations %}<a class="btn {{ 'btn-primary' if a == allocation else 'btn-outline-primary' }}" href="/months/{{ ym }}/allocations/{{ a }}" title="{{ names.get(a, '') }}">{{ a }}</a>{% endfor %}
     </div>
     <a class="btn btn-sm btn-outline-success" href="?format=xlsx">Excel</a>
     <a class="btn btn-sm btn-outline-danger" href="?format=pdf">PDF</a>
@@ -44,6 +47,14 @@
     <a class="btn btn-sm btn-link" href="/months/{{ ym }}">&larr; {{ ym|ym_label }}</a>
   </div>
 </div>
+{% if cs_counts %}
+<div class="alert {{ 'alert-success' if cs_counts[0] == cs_counts[1] else 'alert-danger' }} no-print py-2">
+  {{ '&#10003;'|safe if cs_counts[0] == cs_counts[1] else '&#10007;'|safe }} Verified with Capital Schedule: <b>{{ cs_counts[0]
+  }} / {{ cs_counts[1] }}</b> sub-allocations match (Last, For and To The Month). <a href="/months/{{ ym }}/capital-schedule">See the Capital Schedule</a>
+</div>
+{% elif cs_error %}<div class="alert alert-warning no-print py-2">Capital Schedule could not be read: {{ cs_error }}</div>
+{% elif not month.capital_file_id %}<div class="alert alert-secondary no-print py-2">Not yet checked: the Capital Schedule for this month has not been downloaded.</div>
+{% endif %}
 {% if daybook.warnings %}<div class="alert alert-warning no-print">{% for w in daybook.warnings %}<div>{{ w }}</div>{% endfor %}</div>{% endif %}
 {% if summary.rows and summary.rows|selectattr(4, 'equalto', 'NOT ENTERED')|list %}
 <div class="alert alert-warning no-print">Some Last Month figures are not entered yet. Enter them under <a href="/process/{{ ym }}">Monthly process &rarr; Opening balances</a>.</div>

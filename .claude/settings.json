@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la \"C:/Users/HP/Downloads/\" 2>/dev/null | grep -i \"capital\" ; ls \"f:/HV/Projects/daybook\" | grep -i capital)",
+      "Read(//c/Users/HP/Downloads/**)"
+    ]
+  }
+}

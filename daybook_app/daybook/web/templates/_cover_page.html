@@ -1,0 +1,52 @@
+<style>
+  @page cover { size: A4 portrait; margin: 0; }
+  .cover-page { page: cover; width: 210mm; height: 297mm; box-sizing: border-box; background: #fdfbf6;
+                padding: 12mm; font-family: "DejaVu Serif", Georgia, serif; color: #1a2a52; }
+  .cover-outer { width: 100%; height: 100%; box-sizing: border-box; border: 2mm solid #7a1420; padding: 2mm; }
+  .cover-inner { width: 100%; height: 100%; box-sizing: border-box; border: 0.5mm solid #7a1420; padding: 14mm 16mm;
+                 display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; }
+  .cover-hindi { font-size: 12pt; letter-spacing: 1px; }
+  .cover-ir { font-size: 20pt; font-weight: 700; letter-spacing: 3px; margin-top: 4px; }
+  .cover-wr { font-size: 16pt; font-weight: 700; color: #7a1420; letter-spacing: 2px; margin-top: 2px; }
+  .cover-rule { width: 60%; height: 0; border-top: 1.2pt solid #c7a252; margin: 6px auto; }
+  .cover-rule.thin { width: 50%; border-top-width: 0.8pt; }
+  .cover-office-title { font-size: 13pt; font-weight: 600; margin-top: 4px; }
+  .cover-office-sub { font-size: 10pt; color: #555; letter-spacing: 1px; margin-top: 2px; }
+  .cover-section { margin-top: 10px; border: 0.8pt solid #1a2a52; padding: 4px 16px; font-size: 10pt;
+                    font-weight: 700; letter-spacing: 2px; display: inline-block; }
+  .cover-title-box { border: 2pt double #7a1420; padding: 22px 26px; display: flex; flex-direction: column;
+                      align-items: center; gap: 10px; width: 80%; margin: 0 auto; }
+  .cover-title-text { font-size: 26pt; font-weight: 700; color: #7a1420; letter-spacing: 2px; line-height: 1.3; }
+  .cover-month { font-size: 18pt; font-weight: 600; letter-spacing: 2px; }
+  .cover-official { font-size: 9pt; font-weight: 700; color: #7a1420; letter-spacing: 2px; margin-top: 4px; }
+  .cover-footer-sub { font-size: 9pt; color: #777; margin-top: 2px; }
+</style>
+<div class="cover-page" style="page-break-after: {{ 'always' if (cover_break_after is not defined or cover_break_after) else 'auto' }};">
+  <div class="cover-outer">
+    <div class="cover-inner">
+      <div>
+        <div class="cover-hindi">भारतीय रेल</div>
+        <div class="cover-ir">INDIAN RAILWAYS</div>
+        <div class="cover-wr">WESTERN RAILWAY</div>
+      </div>
+      <div>
+        <div class="cover-rule"></div>
+        <div class="cover-office-title">OFFICE OF THE SENIOR DIVISIONAL FINANCE MANAGER</div>
+        <div class="cover-office-sub">(Sr. DFM)</div>
+        <div class="cover-section">SECTION : BOOKS</div>
+      </div>
+      <div>
+        <div class="cover-title-box">
+          <div class="cover-title-text">{% for line in title_lines %}{{ line }}{% if not loop.last %}<br>{% endif %}{% endfor %}</div>
+          <div class="cover-rule thin"></div>
+          <div class="cover-month">{{ label }}</div>
+        </div>
+      </div>
+      <div>
+        <div class="cover-rule"></div>
+        <div class="cover-official">FOR OFFICIAL USE ONLY</div>
+        <div class="cover-footer-sub">Western Railway &middot; Indian Railways</div>
+      </div>
+    </div>
+  </div>
+</div>

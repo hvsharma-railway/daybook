@@ -114,6 +114,14 @@ def yearly_summary(session, fy, allocation=None):
 
 # ---- month ---------------------------------------------------------------------------
 
+def month_allocation_codes(session, ym):
+    """allocation -> its sub-allocation codes for the month."""
+    codes = defaultdict(list)
+    for b in session.scalars(select(BalanceSubAllocation).where(BalanceSubAllocation.ym == ym)):
+        codes[b.allocation].append(b.code)
+    return codes
+
+
 def month_allocations(session, ym):
     """The nine allocations for a month: Last / For / To."""
     balances = session.scalars(select(BalanceSubAllocation).where(BalanceSubAllocation.ym == ym)).all()
@@ -156,7 +164,7 @@ def sub_allocation(session, code, fy):
     balances = {b.ym: b for b in session.scalars(select(BalanceSubAllocation).where(BalanceSubAllocation.code == code, BalanceSubAllocation.fy == fy))}
     for ym in yms:
         if ym in balances:
-            months.links[(len(months.rows), 0)] = "/months/%s/allocations/%s" % (ym, code[:2])
+            months.links[(len(months.rows), 0)] = "/months/%s/allocations/%s" % (ym, balances[ym].allocation)
             months.rows.append([periods.label(ym)] + list(_bal(balances[ym])))
     if months.rows:
         months.total = ["FY", months.rows[0][1], _sum(months.rows, 2), months.rows[-1][3]]

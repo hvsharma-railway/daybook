@@ -6,3 +6,8 @@ daybook-generated-files/*
 daybook-runs
 monthly/config.local.php
 .env
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/

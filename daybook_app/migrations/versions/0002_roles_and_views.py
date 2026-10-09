@@ -12,7 +12,7 @@ branch_labels = None
 depends_on = None
 
 PERMISSIONS = {
-    "process.run": "Run the monthly process: AIMS downloads, retries, restarts, opening balances",
+    "process.run": "Run the monthly process: IPAS downloads, retries, restarts, opening balances",
     "reports.view": "View all months, allocations, sub-allocations, UWIDs and summaries; export them",
     "uwid.view": "View UWID-wise data (month-wise and overall)",
     "users.manage": "Create users and assign roles",

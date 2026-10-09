@@ -22,19 +22,22 @@ ZERO = Decimal("0.00")
 
 
 def month_amounts(session, month):
-    """For The Month per sub-allocation code and per (code, head, uwid)."""
+    """For The Month per sub-allocation code and per (code, head, uwid), and the allocation (report)
+    each code came from - not always its first two characters (e.g. CR-RM belongs to 29)."""
     codes = defaultdict(lambda: ZERO)
     uwids = defaultdict(lambda: ZERO)
+    allocation_of = {}
     items = session.scalars(select(MonthAllocation).where(MonthAllocation.month_id == month.id)
                             .order_by(MonthAllocation.position)).all()
     for item in items:
         daybook = build_daybook(item.rows or [])
         for table in daybook.tables:
+            allocation_of.setdefault(table.code, item.allocation)
             codes[table.code] += table.amount
             for row in table.rows:
                 for head, amount in row.amounts.items():
                     uwids[(table.code, head, row.uwid_text)] += amount
-    return codes, uwids
+    return codes, uwids, allocation_of
 
 
 def _ready_month(session, ym):
@@ -54,7 +57,12 @@ def compute_month(session, ym):
     prev_codes = {b.code: b for b in session.scalars(select(BalanceSubAllocation).where(BalanceSubAllocation.ym == prev_ym))} if has_prev else {}
     prev_uwids = {(b.code, b.head, b.uwid): b for b in session.scalars(select(BalanceUwid).where(BalanceUwid.ym == prev_ym))} if has_prev else {}
     manual = {o.code: o for o in session.scalars(select(OpeningBalance).where(OpeningBalance.ym == ym))}
-    codes, uwids = month_amounts(session, month)
+    codes, uwids, allocation_of = month_amounts(session, month)
+
+    def allocation(code, prev=None):
+        if code in allocation_of:
+            return allocation_of[code]
+        return prev.allocation if prev is not None else code[:2]
 
     def carries(b):
         return b.closing_running != 0 or (not april and b.to_month_fy != 0)
@@ -87,7 +95,7 @@ def compute_month(session, ym):
 
         for_month = codes.get(code, ZERO)
         session.add(BalanceSubAllocation(
-            ym=ym, fy=fy, allocation=code[:2], code=code, last_month_fy=last_fy, for_month=for_month,
+            ym=ym, fy=fy, allocation=allocation(code, prev), code=code, last_month_fy=last_fy, for_month=for_month,
             to_month_fy=last_fy + for_month, opening_running=opening_running,
             closing_running=opening_running + for_month, opening_source=source, running_estimated=estimated))
 
@@ -99,7 +107,7 @@ def compute_month(session, ym):
         opening_running = prev.closing_running if prev else ZERO
         for_month = uwids.get(key, ZERO)
         session.add(BalanceUwid(
-            ym=ym, fy=fy, allocation=code[:2], code=code, head=head, uwid=uwid, last_month_fy=last_fy,
+            ym=ym, fy=fy, allocation=allocation(code, prev), code=code, head=head, uwid=uwid, last_month_fy=last_fy,
             for_month=for_month, to_month_fy=last_fy + for_month, opening_running=opening_running,
             closing_running=opening_running + for_month))
     session.flush()

@@ -2,10 +2,12 @@
 
 Stages, each re-entrant (a rerun only does what is not done yet):
   1. reports    download the nine Suspense Head reports; stop unless all nine are in
-  2. separate   JV separation -> JV reports and allocation sheets to fetch; balances
-  3. documents  download every JV report and allocation sheet
-  4. outputs    merged JV text + PDF, 2-up allocation-sheet PDF; month complete
-An expired AIMS session pauses the job until a fresh cookie is pasted; other failures are
+  2. capital    download the Capital Schedule (checked against the Daybook when shown)
+  3. separate   JV separation -> JV reports and allocation sheets to fetch; balances
+  4. documents  download every JV report and allocation sheet
+  5. outputs    merged JV text + PDF, 2-up allocation-sheet PDF, the two month PDFs
+                (Daybook Vouchers, Daybook); month complete
+An expired IPAS session pauses the job until a fresh cookie is pasted; other failures are
 recorded per item, retried on the next run, and keep the month from completing.
 """
 import time
@@ -16,12 +18,12 @@ from redis import Redis
 from rq import Queue
 from sqlalchemy import delete, select
 
-from . import aims_session, config, jv, ledger, periods
-from .aims import AimsClient, AimsError, AimsSessionError
+from . import capital_schedule, config, ipas_session, jv, ledger, periods
+from .ipas import IpasClient, IpasError, IpasSessionError
 from .db import session_scope
 from .ingest import get_or_create_month, ingest_report, mark_allocation
 from .models import Co6Item, Job, Month, MonthAllocation, StoredFile
-from .outputs import jv_pdf, sheets_pdf
+from .outputs import jv_pdf, month_pdfs, sheets_pdf
 from .storage import log_event, store_file
 from .suspense import ReportError
 
@@ -91,16 +93,20 @@ def run_job(job_id):
         job.status, job.started_at, job.stage = "running", datetime.utcnow(), "reports"
         month_id, user_id = job.month_id, job.user_id
         ym = s.get(Month, month_id).ym
-    session_data = aims_session.load(user_id)
+    session_data = ipas_session.load(user_id)
     client = None
     try:
-        client = AimsClient(session_data["cookie"], session_data.get("user_agent")) if session_data else None
+        client = IpasClient(session_data["cookie"], session_data.get("user_agent")) if session_data else None
         if not _stage_reports(job_id, month_id, ym, client):
             return
+        _set_job(job_id, stage="capital")
+        _stage_capital(month_id, ym, client)
         _set_job(job_id, stage="separate")
         _stage_separate(month_id, ym)
         _set_job(job_id, stage="documents")
         if not _stage_documents(job_id, month_id, ym, client):
+            return
+        if not _capital_ready(job_id, month_id):
             return
         _set_job(job_id, stage="outputs")
         _stage_outputs(month_id, ym)
@@ -120,7 +126,7 @@ def run_job(job_id):
 
 def _require_client(client):
     if client is None:
-        raise Paused("No AIMS session is set. Paste your AIMS session cookie, then continue.")
+        raise Paused("No IPAS session is set. Paste your IPAS session cookie, then continue.")
     return client
 
 
@@ -134,16 +140,16 @@ def _stage_reports(job_id, month_id, ym, client):
         try:
             name, content = _require_client(client).suspense_head(allocation, ym)
             with session_scope() as s:
-                ingest_report(s, s.get(Month, month_id), allocation, content, name, "aims")
-        except (AimsSessionError, Paused) as e:
+                ingest_report(s, s.get(Month, month_id), allocation, content, name, "ipas")
+        except (IpasSessionError, Paused) as e:
             with session_scope() as s:
                 mark_allocation(s, s.get(Month, month_id), allocation, "failed", str(e))
             raise Paused(str(e))
-        except (AimsError, ReportError) as e:
+        except (IpasError, ReportError) as e:
             with session_scope() as s:
                 mark_allocation(s, s.get(Month, month_id), allocation, "failed", str(e))
                 log_event(s, "report_failed", ym, allocation, str(e))
-        time.sleep(config.AIMS_THROTTLE_SECONDS)
+        time.sleep(config.IPAS_THROTTLE_SECONDS)
 
     with session_scope() as s:
         items = s.scalars(select(MonthAllocation).where(MonthAllocation.month_id == month_id)).all()
@@ -157,7 +163,51 @@ def _stage_reports(job_id, month_id, ym, client):
             return False
         if month.reports_ready_at is None:
             month.reports_ready_at = datetime.utcnow()
+            s.flush()
+            ledger.recompute_from(s, ym)    # balances depend only on the reports
     return True
+
+
+def _stage_capital(month_id, ym, client):
+    """Fetch the Capital Schedule unless it is already in. A failure is recorded and the run carries
+    on with the documents; the month cannot complete until the Schedule is in (Retry or Upload)."""
+    with session_scope() as s:
+        month = s.get(Month, month_id)
+        if month.capital_status == "downloaded" and month.capital_file_id:
+            return
+        month.capital_status, month.capital_message = "downloading", None
+    if client is None:
+        with session_scope() as s:
+            month = s.get(Month, month_id)
+            month.capital_status = "failed"
+            month.capital_message = "No IPAS session is set. Paste your IPAS session cookie and continue, or upload the file by hand."
+        return
+    try:
+        name, content = client.capital_schedule(ym)
+        with session_scope() as s:
+            capital_schedule.accept(s, s.get(Month, month_id), content, name, "ipas")
+    except (IpasSessionError, Paused) as e:
+        with session_scope() as s:
+            month = s.get(Month, month_id)
+            month.capital_status, month.capital_message = "failed", str(e)
+        raise Paused(str(e))
+    except (IpasError, capital_schedule.CapitalScheduleError) as e:
+        with session_scope() as s:
+            month = s.get(Month, month_id)
+            month.capital_status, month.capital_message = "failed", str(e)
+            log_event(s, "capital_schedule_failed", ym, message=str(e))
+    time.sleep(config.IPAS_THROTTLE_SECONDS)
+
+
+def _capital_ready(job_id, month_id):
+    with session_scope() as s:
+        month = s.get(Month, month_id)
+        if month.capital_status == "downloaded" and month.capital_file_id:
+            return True
+        job = s.get(Job, job_id)
+        job.status, job.finished_at = "failed", datetime.utcnow()
+        job.message = "The Capital Schedule is not in yet (%s). Retry it, or upload the file by hand." % (month.capital_message or month.capital_status)
+        return False
 
 
 def _stage_separate(month_id, ym):
@@ -211,16 +261,16 @@ def _stage_documents(job_id, month_id, ym, client):
                 stored = store_file(s, month_id, file_kind, number, file_name, content)
                 item = s.get(Co6Item, item_id)
                 item.status, item.file_id, item.pages, item.message = "downloaded", stored.id, pages, None
-        except (AimsSessionError, Paused) as e:
+        except (IpasSessionError, Paused) as e:
             with session_scope() as s:
                 item = s.get(Co6Item, item_id)
                 item.status, item.message = "failed", str(e)
             raise Paused(str(e))
-        except Exception as e:  # AimsError, unreadable PDF
+        except Exception as e:  # IpasError, unreadable PDF
             with session_scope() as s:
                 item = s.get(Co6Item, item_id)
-                item.status, item.message = "failed", str(e) if isinstance(e, AimsError) else "Not a readable PDF (%s)." % e
-        time.sleep(config.AIMS_THROTTLE_SECONDS)
+                item.status, item.message = "failed", str(e) if isinstance(e, IpasError) else "Not a readable PDF (%s)." % e
+        time.sleep(config.IPAS_THROTTLE_SECONDS)
 
     with session_scope() as s:
         failed = s.scalars(select(Co6Item).where(Co6Item.month_id == month_id, Co6Item.status != "downloaded")).all()
@@ -249,6 +299,7 @@ def build_merged_documents(session, month):
     store_file(session, month.id, "jv_reports_pdf", None, "JV_Reports_%s.pdf" % month.ym, pdf)
     if sheets:
         store_file(session, month.id, "allocation_sheets_pdf", None, "Allocation_Sheets_%s_2up.pdf" % month.ym, sheets_pdf.two_up(sheets))
+    session.flush()
     return warnings
 
 
@@ -266,16 +317,17 @@ def _stage_outputs(month_id, ym):
     with session_scope() as s:
         month = s.get(Month, month_id)
         ledger.recompute_from(s, ym)
+        month_pdfs.build(s, month)
         month.completed_at = datetime.utcnow()
         month.last_error = "; ".join(warnings) or None
         log_event(s, "completed", ym)
 
 
-MERGED_KINDS = ("jv_reports_txt", "jv_reports_pdf", "allocation_sheets_pdf")
+MERGED_KINDS = ("jv_reports_txt", "jv_reports_pdf", "allocation_sheets_pdf", "vouchers_pdf", "daybook_book_pdf")
 
 
 def restart_from_downloads(session, ym, user_id=None):
-    """Restart a month from the files already downloaded, without fetching them from AIMS again.
+    """Restart a month from the files already downloaded, without fetching them from IPAS again.
 
     The stored Suspense Head reports are read and checked again, then JV separation, outputs and
     balances are redone. JV reports and allocation sheets already downloaded are reused; only
@@ -293,17 +345,34 @@ def restart_from_downloads(session, ym, user_id=None):
             mark_allocation(session, month, item.allocation, "pending")
             missing.append(item.allocation)
             continue
-        content, name, via = original.content, item.source_name or "SuspenseHead.xls", item.via or "aims"
+        content, name, via = original.content, item.source_name or "SuspenseHead.xls", item.via or "ipas"
         try:
             ingest_report(session, month, item.allocation, content, name, via, user_id)
             reused += 1
         except ReportError as e:
             mark_allocation(session, month, item.allocation, "failed", str(e))
             missing.append(item.allocation)
+    if month.capital_file_id:
+        try:
+            capital_schedule.load(session, month)
+            month.capital_status, month.capital_message = "downloaded", None
+        except capital_schedule.CapitalScheduleError as e:
+            month.capital_status, month.capital_message = "failed", str(e)
     session.execute(delete(StoredFile).where(StoredFile.month_id == month.id, StoredFile.kind.in_(MERGED_KINDS)))
     month.last_error = None
     log_event(session, "restarted_from_downloads", ym, message="%d reports reused" % reused, user_id=user_id)
     return reused, missing
+
+
+def rebuild_outputs(session, ym, user_id=None):
+    """Something the outputs depend on changed (opening balances, the Capital Schedule): if the month was
+    complete, run it again so the month PDFs are rebuilt (nothing already downloaded is fetched again)."""
+    month = session.scalars(select(Month).where(Month.ym == ym)).first()
+    if month is None or month.completed_at is None:
+        return None
+    month.completed_at = None
+    session.commit()
+    return start(session, ym, user_id)
 
 
 def reset_month(session, ym, user_id=None):

@@ -53,7 +53,8 @@ def daybook_workbook(daybook, allocation, period_label, summary_rows):
     summary["A1"].font = Font(bold=True, size=13)
     summary.merge_cells("A1:D1")
     summary["A2"] = period_label
-    _header(summary, 3, ["Sub-Allocation", "Last Month", "For The Month", "To The Month"])
+    with_check = any("cs" in item for item in summary_rows)
+    _header(summary, 3, ["Sub-Allocation", "Last Month", "For The Month", "To The Month"] + (["Capital Schedule"] if with_check else []))
     row = 4
     totals = [Decimal("0")] * 3
     for item in summary_rows:
@@ -61,6 +62,8 @@ def daybook_workbook(daybook, allocation, period_label, summary_rows):
         summary.cell(row=row, column=1, value=item["label"])
         for col, value in enumerate(values, start=2):
             summary.cell(row=row, column=col, value=float(value)).number_format = MONEY
+        if with_check:
+            summary.cell(row=row, column=5, value=item.get("cs", ""))
         totals = [t + v for t, v in zip(totals, values)]
         row += 1
     summary.cell(row=row, column=1, value="TOTAL").font = Font(bold=True)
@@ -68,8 +71,8 @@ def daybook_workbook(daybook, allocation, period_label, summary_rows):
         cell = summary.cell(row=row, column=col, value=float(value))
         cell.number_format = MONEY
         cell.font = Font(bold=True)
-    _style_range(summary, 3, row, 4)
-    for col, width in zip("ABCD", (18, 20, 20, 20)):
+    _style_range(summary, 3, row, 5 if with_check else 4)
+    for col, width in zip("ABCDE", (18, 20, 20, 20, 42)):
         summary.column_dimensions[col].width = width
     summary.freeze_panes = "A4"
 

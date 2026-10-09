@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Capital Schedule {{ ym|ym_short }}{% endblock %}
+{% block head %}
+<style>
+  .cs-title { font-size: 1.05rem; margin: 22px 0 8px; }
+  .cs { border-collapse: collapse; width: 100%; background: #fff; font-size: 12px; }
+  .cs th, .cs td { border: 1px solid #888; padding: 3px 5px; vertical-align: top; }
+  .cs th { background: #e9eff7; position: sticky; top: 0; } .num { text-align: right; white-space: nowrap; }
+  .cs-alloc { font-weight: normal; font-size: 11px; color: #0b4a8b; }
+  .cs-match { background: #c8efd5; font-weight: 600; }
+  .cs-differs { background: #f9c9cf; font-weight: 600; } .cs-dbk { font-weight: normal; font-size: 11px; }
+  .cs-zero { color: #aaa; } .cs-total td { font-weight: 700; background: #f3f3f3; } .cs-charged td { color: #777; }
+  .cs-label { min-width: 260px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Capital Schedule &middot; {{ ym|ym_label }}</h1>
+    <div class="small-muted">Compared with the Daybook's VOTED figures. Green = matches, red = differs (Daybook figure underneath), grey = nothing to compare.</div>
+  </div>
+  <div class="d-flex gap-2">
+    {% if month.capital_file_id %}<a class="btn btn-sm btn-outline-secondary" href="/files/{{ month.capital_file_id }}">Original file</a>{% endif %}
+    <a class="btn btn-sm btn-link" href="/months/{{ ym }}">&larr; {{ ym|ym_label }}</a>
+  </div>
+</div>
+<div class="alert {{ 'alert-success' if not verification.differences else 'alert-danger' }}">
+  <b>{{ verification.matched_cells }}</b> figures match the Daybook{% if verification.differences %}; <b>{{ verification.differences|length }}</b> differ (listed below){% else %}; nothing differs{% endif %}.
+</div>
+{% if verification.differences %}
+<table class="table table-sm table-bordered bg-white" style="max-width: 1000px">
+  <thead><tr><th>Where</th><th class="money">Capital Schedule</th><th class="money">Daybook</th><th class="money">Difference</th></tr></thead>
+  <tbody>{% for d in verification.differences %}<tr><td>{{ d.where }}</td><td class="money">{{ d.schedule|money }}</td><td class="money">{{ d.daybook|money }}</td><td class="money">{{ (d.schedule - d.daybook)|money }}</td></tr>{% endfor %}</tbody>
+</table>
+{% endif %}
+<div class="table-responsive">{% include "_capital_schedule_tables.html" %}</div>
+{% endblock %}

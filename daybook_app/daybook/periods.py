@@ -42,7 +42,7 @@ def short_label(value):
 
 
 def period(value):
-    """Dates for the AIMS form (1/9/2026, 30/9/2026) and for display (01/09/2026, 30/09/2026)."""
+    """Dates for the IPAS form (1/9/2026, 30/9/2026) and for display (01/09/2026, 30/09/2026)."""
     y, m = parse_ym(value)
     last = calendar.monthrange(y, m)[1]
     return {

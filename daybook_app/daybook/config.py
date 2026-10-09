@@ -5,13 +5,13 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "mysql+pymysql://user:password@db:
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 SECRET_KEY = os.environ.get("DAYBOOK_SECRET_KEY", "dev-only-change-me")
 
-# AIMS
-AIMS_BASE_URL = os.environ.get("AIMS_BASE_URL", "https://aims.indianrailways.gov.in").rstrip("/")
-AIMS_AU = os.environ.get("AIMS_AU", "0818")
-AIMS_SSL_VERIFY = os.environ.get("AIMS_SSL_VERIFY", "1") != "0"
-AIMS_TIMEOUT = float(os.environ.get("AIMS_TIMEOUT", "300"))
-AIMS_THROTTLE_SECONDS = float(os.environ.get("AIMS_THROTTLE_SECONDS", "1"))
-AIMS_COOKIE_TTL_SECONDS = int(os.environ.get("AIMS_COOKIE_TTL_SECONDS", str(8 * 3600)))
+# IPAS
+IPAS_BASE_URL = os.environ.get("IPAS_BASE_URL", "https://aims.indianrailways.gov.in").rstrip("/")
+IPAS_AU = os.environ.get("IPAS_AU", "0818")
+IPAS_SSL_VERIFY = os.environ.get("IPAS_SSL_VERIFY", "1") != "0"
+IPAS_TIMEOUT = float(os.environ.get("IPAS_TIMEOUT", "300"))
+IPAS_THROTTLE_SECONDS = float(os.environ.get("IPAS_THROTTLE_SECONDS", "1"))
+IPAS_COOKIE_TTL_SECONDS = int(os.environ.get("IPAS_COOKIE_TTL_SECONDS", str(8 * 3600)))
 
 # The nine Suspense Head allocations, in processing order
 ALLOCATIONS = ("20", "21", "26", "28", "29", "23", "33", "43", "53")

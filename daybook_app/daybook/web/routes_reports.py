@@ -2,9 +2,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 
-from .. import config, periods, reports
+from .. import capital_schedule, config, periods, reports
+from ..labels import ALLOCATION_NAMES
 from ..models import Co6Item, Month, MonthAllocation, StoredFile
-from ..outputs import documents, print_layout
+from ..outputs import documents, month_pdfs, print_layout
 from .auth import REPORTS_VIEW, UWID_VIEW, get_db, permissions_of, require, uwid_scope
 from .common import XLSX, download, page, parse_fy, report_response, require_ym
 
@@ -58,10 +59,27 @@ def month_page(request: Request, ym: str, format: str = None, user=Depends(need_
         return report_response(request, "Daybook %s" % periods.label(ym), [table], format)
     allocations = db.scalars(select(MonthAllocation).where(MonthAllocation.month_id == month.id).order_by(MonthAllocation.position)).all()
     files = {f.kind: f for f in db.scalars(select(StoredFile).where(
-        StoredFile.month_id == month.id, StoredFile.kind.in_(("jv_reports_txt", "jv_reports_pdf", "allocation_sheets_pdf"))))}
+        StoredFile.month_id == month.id, StoredFile.kind.in_(("jv_reports_txt", "jv_reports_pdf", "allocation_sheets_pdf",
+                                                             "vouchers_pdf", "daybook_book_pdf", "capital_schedule"))))}
     items = db.scalars(select(Co6Item).where(Co6Item.month_id == month.id).order_by(Co6Item.kind, Co6Item.position)).all()
+    verification, cs_error = capital_schedule.try_verify(db, month)
+    checks = {}
+    if verification:
+        balances = reports.month_allocation_codes(db, ym)
+        checks = {a: verification.allocation_counts(a, balances.get(a, [])) for a in config.ALLOCATIONS}
     return page(request, "month.html", ym=ym, month=month, table=table, allocations=allocations, files=files, items=items,
-                status=reports.month_status(month))
+                status=reports.month_status(month), verification=verification, cs_error=cs_error, checks=checks,
+                names=ALLOCATION_NAMES)
+
+
+@router.get("/months/{ym}/capital-schedule")
+def capital_schedule_page(request: Request, ym: str, user=Depends(need_reports), db=Depends(get_db)):
+    month = _month(db, require_ym(ym))
+    verification, error = capital_schedule.try_verify(db, month)
+    if verification is None:
+        raise HTTPException(404, error or "The Capital Schedule for %s has not been downloaded yet." % periods.label(ym))
+    context = month_pdfs.book_context(db, month)
+    return page(request, "capital_schedule.html", month=month, **context)
 
 
 @router.get("/months/{ym}/allocations/{allocation}")
@@ -76,8 +94,13 @@ def daybook_page(request: Request, ym: str, allocation: str, format: str = None,
     if format == "pdf":
         return download(documents.daybook_pdf(db, month, allocation), name + ".pdf", "application/pdf")
     summary, _ = reports.allocation_summary(db, ym, allocation)
+    verification, cs_error = capital_schedule.try_verify(db, month)
+    checks = verification.codes if verification else None
+    cs_counts = verification.allocation_counts(allocation, [r[0].replace("-", "") for r in summary.rows]) if verification else None
     return page(request, "daybook.html", ym=ym, month=month, item=item, daybook=daybook, summary=summary, allocation=allocation,
-                allocations=config.ALLOCATIONS, layouts=print_layout.layout(daybook))
+                allocations=config.ALLOCATIONS, layouts=print_layout.layout(daybook), checks=checks, cs_counts=cs_counts,
+                totals_check=verification.totals.get(allocation) if verification else None,
+                cs_error=cs_error, names=ALLOCATION_NAMES)
 
 
 @router.get("/months/{ym}/zip")

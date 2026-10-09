@@ -1,0 +1,48 @@
+{# The Capital Schedule (CAPITAL-2 for the month, to end, CAPITAL-8 DF bifurcation) with each figure compared with the Daybook.
+   Needs: verification (capital_schedule.Verification), column_allocations, allocation_names. Matching cells: .cs-match; differing: .cs-differs. #}
+{% set s = verification.schedule %}
+{% macro value_cell(key, ri, ci, v) -%}
+  {%- set c = verification.cells.get((key, ri, ci)) -%}
+  {%- if c and c.status == 'match' -%}<td class="num cs-match" title="Matches the Daybook">{{ v|money }} &#10003;</td>
+  {%- elif c and c.status == 'differs' -%}<td class="num cs-differs" title="Daybook: {{ c.daybook|money }}">{{ v|money }} &#10007;<div class="cs-dbk">Daybook {{ c.daybook|money }}</div></td>
+  {%- else -%}<td class="num{{ ' cs-zero' if v == 0 }}">{{ v|money }}</td>{%- endif -%}
+{%- endmacro %}
+{% macro column_head(column) -%}
+  {{ column }}{% set allocs = column_allocations.get(column) %}{% if allocs %}<div class="cs-alloc">{% for a in allocs %}{{ a }} {{ allocation_names.get(a, '') }}{% if not loop.last %}, {% endif %}{% endfor %}</div>{% endif %}
+{%- endmacro %}
+
+{% for section in (s.for_month, s.to_end) %}
+<div class="cs-section">
+  <h3 class="cs-title" id="cs-{{ section.key }}">CAPITAL-2 &middot; Works expenditure under Grant No-16 &mdash; {{ 'For the month of' if section.key == 'for' else 'To end of the month' }} {{ s.month_label }}</h3>
+  <table class="cs">
+    <thead><tr><th class="cs-label">Sub-head of demand</th><th></th>{% for c in section.columns %}<th class="num">{{ column_head(c) }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for row in section.rows %}{% set ri = loop.index0 %}
+      {% if row.kind in ('plan', 'total_final') %}
+        <tr class="{{ 'cs-total' if row.kind == 'total_final' }}"><td class="cs-label" rowspan="{{ 2 if row.charged else 1 }}">{{ row.label }}</td><td>VOTED</td>
+          {% for v in row.voted %}{{ value_cell(section.key, ri, loop.index0, v) }}{% endfor %}</tr>
+        {% if row.charged %}<tr class="cs-charged"><td>CHARGED</td>{% for v in row.charged %}<td class="num{{ ' cs-zero' if v == 0 }}">{{ v|money }}</td>{% endfor %}</tr>{% endif %}
+      {% else %}
+        <tr class="{{ 'cs-total' if row.kind == 'summary' }}"><td class="cs-label" colspan="2">{{ row.label }}</td>
+          {% for v in row.voted %}{{ value_cell(section.key, ri, loop.index0, v) }}{% endfor %}</tr>
+      {% endif %}
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endfor %}
+
+<div class="cs-section">
+  <h3 class="cs-title" id="cs-df">CAPITAL-8 &middot; Bifurcation of DF-I, II, III, IV under Grant No-16 &mdash; {{ s.month_label }}</h3>
+  <table class="cs">
+    <thead>
+      <tr><th class="cs-label" rowspan="2">Plan head</th><th colspan="5">For the month</th><th colspan="5">To end of month</th></tr>
+      <tr>{% for half in (0, 1) %}{% for d in ('DF-I (23)', 'DF-II (33)', 'DF-III (43)', 'DF-IV (53)', 'Total') %}<th class="num">{{ d }}</th>{% endfor %}{% endfor %}</tr>
+    </thead>
+    <tbody>
+    {% for row in s.df_rows %}{% set ri = loop.index0 %}
+      <tr class="{{ 'cs-total' if row.is_total }}"><td class="cs-label">{{ row.label }}</td>{% for v in row.values %}{{ value_cell('df', ri, loop.index0, v) }}{% endfor %}</tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>

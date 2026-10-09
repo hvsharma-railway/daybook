@@ -6,6 +6,7 @@ from sqlalchemy import delete, select
 from . import config, periods
 from . import phpcompat as php
 from .models import Month, MonthAllocation, SuspenseEntry
+from .labels import rename_heads
 from .storage import log_event, store_file
 from .suspense import read_report, validate, write_xlsx
 
@@ -13,7 +14,7 @@ from .suspense import read_report, validate, write_xlsx
 def get_or_create_month(session, ym):
     month = session.scalars(select(Month).where(Month.ym == ym)).first()
     if month is None:
-        month = Month(ym=ym, au=config.AIMS_AU)
+        month = Month(ym=ym, au=config.IPAS_AU)
         session.add(month)
         session.flush()
     existing = {a.allocation for a in month.allocations}
@@ -88,13 +89,14 @@ def ingest_report(session, month, allocation, content, source_name, via, user_id
     year, mon = periods.parse_ym(month.ym)
     report = read_report(content)
     heads, entries = validate(report.rows, allocation, year, mon)
+    rows = rename_heads(report.rows)   # after the check, which must see IPAS's own head codes
 
     item = month_allocation(session, month, allocation)
     original = store_file(session, month.id, "report_original", allocation, "%s - %s" % (allocation, source_name), content)
-    converted = store_file(session, month.id, "report_converted", allocation, "%s.xlsx" % allocation, write_xlsx(report.rows))
+    converted = store_file(session, month.id, "report_converted", allocation, "%s.xlsx" % allocation, write_xlsx(rows))
 
     session.execute(delete(SuspenseEntry).where(SuspenseEntry.month_id == month.id, SuspenseEntry.allocation == allocation))
-    for e in _entries(report.rows):
+    for e in _entries(rows):
         session.add(SuspenseEntry(month_id=month.id, allocation=allocation, **{
             k: (v[:_LENGTHS[k]] if isinstance(v, str) and k in _LENGTHS else v) for k, v in e.items()}))
 
@@ -107,7 +109,7 @@ def ingest_report(session, month, allocation, content, source_name, via, user_id
     item.entries = entries
     item.original_file_id = original.id
     item.converted_file_id = converted.id
-    item.rows = report.rows
+    item.rows = rows
     item.warnings = report.warnings
     invalidate(month)
     log_event(session, "report_received", month.ym, allocation, "%s via %s: %d entries" % (source_name, via, entries), user_id)

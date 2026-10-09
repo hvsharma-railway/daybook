@@ -8,9 +8,9 @@ Open **http://localhost:32771**. Login is switched off for now: every page opens
 ## What it does
 
 **Monthly process** (`/process`):
-1. Pick the month. Paste your AIMS session cookie (see below).
+1. Pick the month. Paste your IPAS session cookie (see below).
 2. Click **Start monthly process**. On the server, it:
-   - downloads the nine Suspense Head reports (20, 21, 26, 28, 29, 23, 33, 43, 53) from AIMS
+   - downloads the nine Suspense Head reports (20, 21, 26, 28, 29, 23, 33, 43, 53) from IPAS
      and checks each one: right allocation, right month, expected columns;
    - once all nine are in, separates the JVs (same rules as the old JV separation page);
    - downloads every JV report and every allocation sheet;
@@ -26,11 +26,11 @@ Open **http://localhost:32771**. Login is switched off for now: every page opens
    - the JV and CO6 lists.
 
 You can close the browser while it runs. Any failed item shows its reason and has **Retry**. A report can
-also be **uploaded** by hand. An expired AIMS session pauses the run until a new cookie is pasted.
+also be **uploaded** by hand. An expired IPAS session pauses the run until a new cookie is pasted.
 Nothing is marked complete while anything is missing.
 
-**AIMS session**
-- Log in to AIMS in your browser, press F12 → Network, click an AIMS request and copy the whole
+**IPAS session**
+- Log in to IPAS in your browser, press F12 → Network, click an IPAS request and copy the whole
   `Cookie` request header into the box on the process page.
 - It's kept in Redis for 8 hours, and never stored in the database or in files.
 
@@ -59,10 +59,10 @@ printing exactly.
 
 | Variable | Default | |
 |---|---|---|
-| `AIMS_BASE_URL` | https://aims.indianrailways.gov.in | |
-| `AIMS_AU` | 0818 | Accounting unit sent to AIMS |
-| `AIMS_THROTTLE_SECONDS` | 1 | Pause between AIMS requests |
-| `AIMS_COOKIE_TTL_SECONDS` | 28800 | How long a pasted session is kept |
+| `IPAS_BASE_URL` | https://aims.indianrailways.gov.in | |
+| `IPAS_AU` | 0818 | Accounting unit sent to IPAS |
+| `IPAS_THROTTLE_SECONDS` | 1 | Pause between IPAS requests |
+| `IPAS_COOKIE_TTL_SECONDS` | 28800 | How long a pasted session is kept |
 | `BALANCE_MODE` | fy | `fy` or `running` |
 | `AUTH_ENABLED` | 0 | Login and roles (prepared, switched off for now) |
 | `DAYBOOK_SECRET_KEY` | dev value | Set a long random value outside development |
@@ -82,6 +82,6 @@ To switch it on:
 
 ## Development
 
-`tools/mock_aims.py` is a stand-in for AIMS, for trying the process without a real session. Its docstring
+`tools/mock_ipas.py` is a stand-in for IPAS, for trying the process without a real session. Its docstring
 explains how to run it. `tools/make_golden.sh` and the files under `tests/` record what the old PHP app
 prints, for comparison.

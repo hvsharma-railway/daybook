@@ -19,11 +19,16 @@
   <div class="col-lg-5">
     <div class="card mb-3"><div class="card-body">
       <h2 class="h6 fw-semibold">Daybook by allocation</h2>
+      {% if verification %}
+      <div class="small mb-2">Capital Schedule: <a href="/months/{{ ym }}/capital-schedule">{{ verification.matched_cells }} figures match{% if verification.differences %}, <span class="text-danger">{{ verification.differences|length }} differ</span>{% endif %}</a></div>
+      {% elif cs_error %}<div class="small text-warning mb-2">Capital Schedule could not be read: {{ cs_error }}</div>
+      {% else %}<div class="small-muted mb-2">Capital Schedule not downloaded yet.</div>{% endif %}
       <table class="table table-sm mb-0">
         {% for a in allocations %}
         <tr>
-          <td class="fw-semibold">{{ a.allocation }}</td>
+          <td class="fw-semibold">{{ a.allocation }} <span class="small-muted fw-normal">{{ names.get(a.allocation, '') }}</span></td>
           <td class="small">{{ a.entries if a.entries is not none else '-' }} entries</td>
+          <td class="small">{% set c = checks.get(a.allocation) %}{% if c and c[1] %}<span class="{{ 'text-success' if c[0] == c[1] else 'text-danger' }}" title="Sub-allocations matching the Capital Schedule">{{ c[0] }} / {{ c[1] }} {{ '&#10003;'|safe if c[0] == c[1] else '&#10007;'|safe }}</span>{% endif %}</td>
           <td class="text-end">
             {% if a.status == 'downloaded' %}
             <a href="/months/{{ ym }}/allocations/{{ a.allocation }}">View</a> &middot;
@@ -40,6 +45,10 @@
       {% set jv_items = items|selectattr('kind', 'equalto', 'jv')|list %}
       {% set sheet_items = items|selectattr('kind', 'equalto', 'sheet')|list %}
       <div class="small mb-2">{{ jv_items|length }} JV reports &middot; {{ sheet_items|length }} allocation sheets</div>
+      <div class="d-flex flex-wrap gap-2 mb-2">
+        {% if files.daybook_book_pdf %}<a class="btn btn-sm btn-danger" href="/files/{{ files.daybook_book_pdf.id }}">{{ files.daybook_book_pdf.file_name }}</a>{% endif %}
+        {% if files.vouchers_pdf %}<a class="btn btn-sm btn-danger" href="/files/{{ files.vouchers_pdf.id }}">{{ files.vouchers_pdf.file_name }}</a>{% endif %}
+      </div>
       <div class="d-flex flex-wrap gap-2">
         {% if files.jv_reports_pdf %}<a class="btn btn-sm btn-outline-danger" href="/files/{{ files.jv_reports_pdf.id }}">JV reports PDF</a>{% endif %}
         {% if files.jv_reports_txt %}<a class="btn btn-sm btn-outline-secondary" href="/files/{{ files.jv_reports_txt.id }}">JV reports text</a>{% endif %}

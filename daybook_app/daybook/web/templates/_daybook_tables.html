@@ -18,12 +18,27 @@
 {% macro total_row(t, heads, with_total) -%}
   <tr class="dbt-total"><td colspan="3"><b>TOTAL</b></td>{% for h in heads %}<td class="num"><b>{{ t.head_total_display(h) }}</b></td>{% endfor %}{% if with_total %}<td class="num"><b>{{ t.total_display }}</b></td>{% endif %}</tr>
 {%- endmacro %}
+{# Capital Schedule marks: `checks` = capital_schedule.Verification.codes (code -> CodeCheck), when available #}
+{% macro cs_mark(code) -%}
+  {%- set chk = checks.get(code) if checks else none -%}
+  {%- if chk and chk.statuses['for'] != 'missing' -%}
+    {%- if chk.statuses['for'] == 'match' -%}<span class="cs-mark ok" title="For The Month matches the Capital Schedule ({{ chk.where }})">&#10003; Capital Schedule</span>
+    {%- else -%}<span class="cs-mark bad" title="Capital Schedule ({{ chk.where }}): {{ chk.schedule['for']|money }}">&#10007; Capital Schedule {{ chk.schedule['for']|money }}</span>{%- endif -%}
+  {%- elif chk -%}<span class="cs-mark none">not in Capital Schedule</span>{%- endif -%}
+{%- endmacro %}
+{% macro summary_mark(code) -%}
+  {%- set chk = checks.get(code) -%}
+  {%- if not chk -%}
+  {%- elif chk.ok -%}<span class="cs-mark ok" title="Last, For and To The Month match ({{ chk.where }})">&#10003;</span>
+  {%- elif chk.statuses['for'] == 'missing' -%}<span class="cs-mark none">not in Schedule</span>
+  {%- else -%}<span class="cs-mark bad">&#10007; {% for k, name in (('last', 'Last'), ('for', 'For'), ('to', 'To')) if chk.statuses[k] == 'differs' %}{{ name }}: {{ chk.schedule[k]|money }}{% if not loop.last %}; {% endif %}{% endfor %}</span>{%- endif -%}
+{%- endmacro %}
 
 {% if not print_only %}
 <div class="screen-tables">
 {% for t in daybook.tables %}
 <div class="daybook-table">
-  <h3 class="dbt-title"><u>{{ daybook.table_title(t) }}</u></h3>
+  <h3 class="dbt-title"><u>{{ daybook.table_title(t) }}</u> {{ cs_mark(t.code) }}</h3>
   <table class="dbt">
     <thead>{{ header(t.heads, true) }}</thead>
     <tbody>
@@ -41,7 +56,7 @@
 {% for L in layouts %}{% set t = L.table %}
   {% for p in L.parts %}
   <div class="print-part" style="font-size: {{ L.font_pt }}pt;">
-    <h3 class="dbt-title"><u>{{ daybook.table_title(t) }}{{ p.suffix }}</u></h3>
+    <h3 class="dbt-title"{% if p.first == 1 %} id="tbl-{{ allocation }}-{{ t.code }}"{% endif %}><u>{{ daybook.table_title(t) }}{{ p.suffix }}</u> {{ cs_mark(t.code) }}</h3>
     <table class="dbt dbt-print" style="width: {{ p.table_width }}mm;">
       <colgroup>{% for w in p.widths %}<col style="width: {{ '%.1f'|format(w) }}mm;">{% endfor %}</colgroup>
       <thead>{{ header(p.heads, p.with_total) }}</thead>
@@ -57,15 +72,22 @@
 {% endif %}
 
 <div class="daybook-summary">
-  <h3 class="dbt-title">Day Book Summary For Allocation Code: {{ allocation }}</h3>
+  <h3 class="dbt-title" id="sum-{{ allocation }}">Day Book Summary For Allocation Code: {{ allocation }}</h3>
   <div class="dbt-period">{{ ym|ym_label }}</div>
   <table class="dbt" style="width:auto; min-width: 55%;">
-    <thead><tr><th>Sub-Allocations</th><th class="num">Last Month</th><th class="num">For The Month</th><th class="num">To The Month</th></tr></thead>
+    <thead><tr><th>Sub-Allocations</th><th class="num">Last Month</th><th class="num">For The Month</th><th class="num">To The Month</th>{% if checks %}<th>Capital Schedule</th>{% endif %}</tr></thead>
     <tbody>
     {% for row in summary.rows %}
-      <tr><td>{{ row[0] }}</td><td class="num">{{ row[1]|money }}</td><td class="num">{{ row[2]|money }}</td><td class="num">{{ row[3]|money }}</td></tr>
+      <tr><td>{{ row[0] }}</td><td class="num">{{ row[1]|money }}</td><td class="num">{{ row[2]|money }}</td><td class="num">{{ row[3]|money }}</td>{% if checks %}<td>{{ summary_mark(row[0]|replace('-', '')) }}</td>{% endif %}</tr>
     {% endfor %}
-      <tr class="dbt-total"><td><b>TOTAL</b></td><td class="num"><b>{{ summary.total[1]|money }}</b></td><td class="num"><b>{{ summary.total[2]|money }}</b></td><td class="num"><b>{{ summary.total[3]|money }}</b></td></tr>
+      {% set tc = totals_check %}
+      <tr class="dbt-total"><td><b>TOTAL</b></td>
+        {% for k, v in (('last', summary.total[1]), ('for', summary.total[2]), ('to', summary.total[3])) %}
+          {% set st = tc.statuses[k] if tc else none %}
+          <td class="num{{ ' cs-hit' if st == 'match' }}{{ ' cs-miss' if st == 'differs' }}"{% if tc %} title="Capital Schedule ({{ tc.where }}): {{ tc.schedule[k]|money }}"{% endif %}><b>{{ v|money }}</b>{% if st == 'match' %} &#10003;{% elif st == 'differs' %} &#10007;{% endif %}</td>
+        {% endfor %}
+        {% if checks %}<td>{% if tc %}{% if tc.statuses.values()|select('equalto', 'differs')|list %}<span class="cs-mark bad">&#10007; Schedule total {% for k, name in (('last', 'Last'), ('for', 'For'), ('to', 'To')) if tc.statuses[k] == 'differs' %}{{ name }}: {{ tc.schedule[k]|money }}{% if not loop.last %}; {% endif %}{% endfor %}</span>{% else %}<span class="cs-mark ok" title="{{ tc.where }}">&#10003; totals match</span>{% endif %}{% endif %}</td>{% endif %}
+      </tr>
     </tbody>
   </table>
   <div class="signatures"><span>AC / SE (IT)</span><span>SSO (Books)</span><span>ADFM / SrDFM RJT</span></div>

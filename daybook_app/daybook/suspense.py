@@ -1,7 +1,7 @@
-"""Reading and checking AIMS Suspense Head reports.
+"""Reading and checking IPAS Suspense Head reports.
 
 A report becomes a list of rows (lists of cell values: str or None), the same shape and
-values PhpSpreadsheet's toArray() gives the PHP app. AIMS sends "SuspenseHead.xls"
+values PhpSpreadsheet's toArray() gives the PHP app. IPAS sends "SuspenseHead.xls"
 labelled text/plain, so the format is detected from the content, never the headers.
 """
 import datetime
@@ -117,7 +117,7 @@ def _read_html(content):
 
 
 def read_report(content: bytes) -> Report:
-    """Read any format AIMS may send: .xls (BIFF), .xlsx, or an HTML table."""
+    """Read any format IPAS may send: .xls (BIFF), .xlsx, or an HTML table."""
     warnings = []
     head = content[:4096]
     try:
@@ -128,9 +128,9 @@ def read_report(content: bytes) -> Report:
         elif re.search(rb"<table", head, re.I) or re.search(rb"<table", content, re.I):
             rows, fmt = _read_html(content), "html"
         elif re.search(rb"<(!doctype html|html|body|form)\b", head, re.I):
-            raise ReportError("This is a web page (such as an AIMS login or error page), not the Suspense Head report.")
+            raise ReportError("This is a web page (such as an IPAS login or error page), not the Suspense Head report.")
         else:
-            raise ReportError("The file is not a spreadsheet AIMS would send (.xls, .xlsx or HTML table).")
+            raise ReportError("The file is not a spreadsheet IPAS would send (.xls, .xlsx or HTML table).")
     except ReportError:
         raise
     except Exception as e:  # corrupt file
@@ -144,7 +144,7 @@ def _clip(text, n=80):
 
 
 def period_strings(year, month):
-    """AIMS form dates for a month, e.g. (1/9/2026, 30/9/2026)."""
+    """IPAS form dates for a month, e.g. (1/9/2026, 30/9/2026)."""
     import calendar
 
     return "1/%d/%d" % (month, year), "%d/%d/%d" % (calendar.monthrange(year, month)[1], month, year)

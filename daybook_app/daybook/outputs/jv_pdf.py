@@ -1,7 +1,7 @@
 """JV reports: all JV text files merged into one, and that text as a PDF.
 
 The PDF is landscape A4 in Courier at 60% of the usual 10 pt (6 pt, 7.2 pt line
-spacing), so AIMS's fixed-width columns line up. Each JV starts on a new page and form
+spacing), so IPAS's fixed-width columns line up. Each JV starts on a new page and form
 feeds inside a report are kept as page breaks. Lines too long for the page are cut, not
 wrapped, so columns never break; a warning says how many.
 """

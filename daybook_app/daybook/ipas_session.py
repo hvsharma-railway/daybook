@@ -1,4 +1,4 @@
-"""Per-user AIMS session cookie, held in Redis for a limited time only."""
+"""Per-user IPAS session cookie, held in Redis for a limited time only."""
 import json
 import time
 
@@ -12,11 +12,11 @@ def redis():
 
 
 def _key(user_id):
-    return "daybook:aims_session:%d" % (user_id or 0)   # 0 = the local user while login is off
+    return "daybook:ipas_session:%d" % (user_id or 0)   # 0 = the local user while login is off
 
 
 def save(user_id, cookie, user_agent):
-    redis().setex(_key(user_id), config.AIMS_COOKIE_TTL_SECONDS,
+    redis().setex(_key(user_id), config.IPAS_COOKIE_TTL_SECONDS,
                   json.dumps({"cookie": cookie, "user_agent": user_agent, "saved_at": int(time.time())}))
 
 

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Daybook {{ label }}</title>
+<style>
+  @page { size: A4 landscape; margin: 8mm 8mm 10mm 8mm;
+          @bottom-left { content: "Daybook {{ label }}"; font-size: 7pt; color: #555; }
+          @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 7pt; } }
+  body { font-family: "DejaVu Sans", Arial, sans-serif; margin: 0; }
+  h1 { font-size: 18pt; margin: 0 0 4px; }
+  .sub { color: #444; font-size: 10pt; margin-bottom: 14px; }
+  /* contents */
+  .toc { page-break-after: always; font-size: 8.5pt; }
+  .toc ul { columns: 2; column-gap: 14mm; }
+  .toc li.l1 { break-after: avoid; }
+  .toc ul { list-style: none; margin: 0; padding: 0; }
+  .toc li { margin: 2px 0; }
+  .toc li.l1 { font-weight: bold; margin-top: 8px; }
+  .toc li.l2 { padding-left: 18px; }
+  .toc a { color: #000; text-decoration: none; }
+  .toc a::after { content: leader('.') target-counter(attr(href url), page); }
+  /* bookmarks in the PDF */
+  .bm1 { bookmark-level: 1; } .bm2 { bookmark-level: 2; }
+  .alloc-head { font-size: 15pt; margin: 0 0 6px; break-after: avoid; page-break-before: always; }
+  /* Daybook tables (same as daybook_print.html) */
+  /* each table part starts a page, except the first one under its allocation heading; summaries follow
+     their last table when there is room, so no page is left nearly empty */
+  .print-part { page-break-before: always; }
+  .alloc-head + .print-tables > .print-part:first-child { page-break-before: auto; }
+  .daybook-summary { page-break-inside: avoid; margin-top: 14px; }
+  .dbt-title { font-size: 11pt; margin: 0 0 5px; }
+  .dbt { border-collapse: collapse; }
+  .dbt-print { table-layout: fixed; }
+  .dbt th, .dbt td { border: 1px solid #000; padding: 1px 3px; vertical-align: top; }
+  .dbt th { background: #eee; } .num { text-align: right; white-space: nowrap; }
+  .wrap { overflow-wrap: anywhere; } .nowrap { white-space: nowrap; }
+  thead { display: table-header-group; } tr { page-break-inside: avoid; }
+  .daybook-summary { font-size: 10pt; } .daybook-summary .dbt td, .daybook-summary .dbt th { padding: 4px 8px; }
+  .cs-hit { background: #c8efd5 !important; } .cs-miss { background: #f9c9cf !important; }
+  .signatures { display: flex; justify-content: space-between; width: 70%; margin-top: 70px; }
+  .cs-mark { font-size: 8pt; font-weight: normal; padding: 0 4px; border-radius: 3px; }
+  .cs-mark.ok { color: #0a6b2e; background: #d9f2e2; } .cs-mark.bad { color: #a01624; background: #fbdde0; } .cs-mark.none { color: #666; }
+  /* Capital Schedule */
+  .cs-page { }
+  .cs-section { page-break-after: always; }
+  .cs-title { font-size: 11pt; margin: 0 0 5px; }
+  .cs { border-collapse: collapse; width: 100%; font-size: 6.6pt; }
+  .cs th, .cs td { border: 1px solid #555; padding: 1px 3px; vertical-align: top; }
+  .cs th { background: #eee; } .cs-label { width: 22%; }
+  .cs-alloc { font-weight: normal; font-size: 6pt; color: #0b4a8b; }
+  .cs-match { background: #c8efd5; font-weight: bold; }
+  .cs-differs { background: #f9c9cf; font-weight: bold; } .cs-dbk { font-weight: normal; font-size: 5.8pt; }
+  .cs-zero { color: #aaa; } .cs-total td { font-weight: bold; background: #f3f3f3; } .cs-charged td { color: #777; }
+  .cs-summary { font-size: 9pt; margin-bottom: 8px; }
+  .diff { border-collapse: collapse; font-size: 8pt; } .diff td, .diff th { border: 1px solid #999; padding: 2px 5px; }
+</style></head>
+<body>
+
+{% with title_lines=["CAPITAL", "DAYBOOK"] %}{% include "_cover_page.html" %}{% endwith %}
+
+<div class="toc">
+  <h1>Daybook {{ label }}</h1>
+  <div class="sub">Suspense Head, allocations {{ allocations|map(attribute='allocation')|join(', ') }} &middot; {{ period.start_display }} to {{ period.end_display }}</div>
+  <ul>
+    {% if verification %}
+    <li class="l1"><a href="#cs-start">Capital Schedule (checked against the Daybook)</a></li>
+    <li class="l2"><a href="#cs-for">CAPITAL-2 &middot; For the month</a></li>
+    <li class="l2"><a href="#cs-to">CAPITAL-2 &middot; To end of the month</a></li>
+    <li class="l2"><a href="#cs-df">CAPITAL-8 &middot; Bifurcation of DF-I to IV</a></li>
+    {% endif %}
+    {% for a in allocations %}
+    <li class="l1"><a href="#alloc-{{ a.allocation }}">Allocation {{ a.allocation }}{% if a.name %} &middot; {{ a.name }}{% endif %}</a></li>
+      {% for t in a.daybook.tables %}<li class="l2"><a href="#tbl-{{ a.allocation }}-{{ t.code }}">{{ t.label }}</a></li>{% endfor %}
+      <li class="l2"><a href="#sum-{{ a.allocation }}">Day Book Summary &middot; Allocation {{ a.allocation }}</a></li>
+    {% endfor %}
+  </ul>
+</div>
+
+{% if verification %}
+<div class="cs-page">
+  <h1 id="cs-start" class="bm1">Capital Schedule &middot; {{ label }}</h1>
+  <div class="cs-summary">
+    Compared with the Daybook (VOTED figures): <b>{{ verification.matched_cells }}</b> figures match{% if verification.differing_cells %}, <b style="color:#a01624">{{ verification.differing_cells }} differ</b>{% endif %}.
+    Highlighted green = matches the Daybook; red = differs (Daybook figure shown underneath).
+  </div>
+  {% if verification.differences %}
+  <table class="diff"><tr><th>Where</th><th>Capital Schedule</th><th>Daybook</th><th>Difference</th></tr>
+    {% for d in verification.differences %}<tr><td>{{ d.where }}</td><td class="num">{{ d.schedule|money }}</td><td class="num">{{ d.daybook|money }}</td><td class="num">{{ (d.schedule - d.daybook)|money }}</td></tr>{% endfor %}
+  </table>
+  {% endif %}
+</div>
+{% include "_capital_schedule_tables.html" %}
+{% endif %}
+
+{% for a in allocations %}
+  <h1 class="alloc-head bm1" id="alloc-{{ a.allocation }}">Allocation {{ a.allocation }}{% if a.name %} &middot; {{ a.name }}{% endif %}</h1>
+  {% with daybook=a.daybook, summary=a.summary, allocation=a.allocation, layouts=a.layouts, print_only=true, checks=(verification.codes if verification else none),
+          totals_check=(verification.totals.get(a.allocation) if verification else none) %}
+    {% include "_daybook_tables.html" %}
+  {% endwith %}
+{% endfor %}
+</body></html>
